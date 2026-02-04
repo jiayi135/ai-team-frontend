@@ -4,7 +4,7 @@ import { TASK_STATUS, ROLES } from '@/lib/constants';
 import { getTaskStatusColor, formatTime, formatDuration } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -18,6 +18,14 @@ interface Task {
   iterations: number;
   cost: number;
   mandate: string; // P.R.O.M.P.T. mandate
+}
+
+interface ErrorDiagnosis {
+  isSyntaxError: boolean;
+  isPermissionError: boolean;
+  isLogicError: boolean;
+  diagnosis: string;
+  suggestedFix: string;
 }
 
 const mockTasks: Task[] = [
@@ -122,6 +130,8 @@ export default function Tasks() {
   const [executionGoal, setExecutionGoal] = useState<string>('');
   const [executionOutput, setExecutionOutput] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
+  const [lastDiagnosis, setLastDiagnosis] = useState<ErrorDiagnosis | null>(null);
+  const [attemptCount, setAttemptCount] = useState<number>(0);
 
   const filteredTasks = mockTasks.filter((task) => {
     const matchesFilter = filter === 'all' || task.status === filter;
@@ -140,30 +150,61 @@ export default function Tasks() {
   const handleExecuteTask = async () => {
     setIsExecuting(true);
     setExecutionOutput('正在生成并执行代码...\n');
-    try {
-      const response = await fetch('http://localhost:3001/api/execute/task', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role: executionRole,
-          goal: executionGoal,
-          context: '当前项目是一个基于 React, Vite, TailwindCSS 的前端应用。'
-        }),
-      });
+    setLastDiagnosis(null);
+    setAttemptCount(0);
 
-      const result = await response.json();
-      if (result.success) {
-        setExecutionOutput(prev => prev + `执行成功！\n${result.output}`);
-      } else {
-        setExecutionOutput(prev => prev + `执行失败！\n错误: ${result.error}`);
+    let currentAttempt = 0;
+    const MAX_ATTEMPTS = 3;
+
+    while (currentAttempt < MAX_ATTEMPTS) {
+      currentAttempt++;
+      setAttemptCount(currentAttempt);
+      setExecutionOutput(prev => prev + `\n--- 尝试 ${currentAttempt} ---\n`);
+      setExecutionOutput(prev => prev + `[${executionRole}] 目标: ${executionGoal}\n`);
+
+      try {
+        const response = await fetch('http://localhost:3001/api/execute/task', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            role: executionRole,
+            goal: executionGoal,
+            context: `当前项目是一个基于 React, Vite, TailwindCSS 的前端应用。这是第 ${currentAttempt} 次尝试。`
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setExecutionOutput(prev => prev + `执行成功！\n${result.output}`);
+          setIsExecuting(false);
+          return; // 任务成功，退出循环
+        } else {
+          setExecutionOutput(prev => prev + `执行失败！\n错误: ${result.error}`);
+          if (result.diagnosis) {
+            setLastDiagnosis(result.diagnosis);
+            setExecutionOutput(prev => prev + `\n[Tester 诊断]: ${result.diagnosis.diagnosis}\n[修复建议]: ${result.diagnosis.suggestedFix}\n`);
+            // 如果是最后一次尝试，或者没有修复建议，则不再重试
+            if (currentAttempt >= MAX_ATTEMPTS || !result.diagnosis.suggestedFix) {
+              setIsExecuting(false);
+              return; // 达到最大尝试次数或无法修复，退出循环
+            }
+            // 更新 goal，让 LLM 尝试修复
+            setExecutionGoal(prevGoal => `${prevGoal} (修复建议: ${result.diagnosis.suggestedFix})`);
+          } else {
+            setIsExecuting(false);
+            return; // 没有诊断信息，直接退出
+          }
+        }
+      } catch (error: any) {
+        setExecutionOutput(prev => prev + `请求失败！\n错误: ${error.message}`);
+        setIsExecuting(false);
+        return; // 请求失败，退出循环
       }
-    } catch (error: any) {
-      setExecutionOutput(prev => prev + `请求失败！\n错误: ${error.message}`);
-    } finally {
-      setIsExecuting(false);
     }
+    setIsExecuting(false);
+    setExecutionOutput(prev => prev + `\n--- 达到最大尝试次数 (${MAX_ATTEMPTS})，任务未能成功完成。 ---`);
   };
 
   return (
@@ -217,12 +258,23 @@ export default function Tasks() {
           ) : (
             <Play size={20} />
           )}
-          {isExecuting ? '执行中...' : '开始自主执行'}
+          {isExecuting ? `执行中 (尝试 ${attemptCount}/${MAX_ATTEMPTS})...` : '开始自主执行'}
         </button>
 
         {executionOutput && (
           <div className="mt-6 bg-slate-800 text-white p-4 rounded-lg font-mono text-sm overflow-auto max-h-60">
             <pre>{executionOutput}</pre>
+          </div>
+        )}
+
+        {lastDiagnosis && !lastDiagnosis.isSyntaxError && !lastDiagnosis.isPermissionError && !lastDiagnosis.isLogicError && ( // 仅在有诊断信息且不是成功时显示
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            <h3 className="font-bold text-red-800 flex items-center gap-2 mb-2">
+              <Bug size={20} />
+              Tester 诊断报告
+            </h3>
+            <p className="text-sm mb-1"><strong>诊断:</strong> {lastDiagnosis.diagnosis}</p>
+            <p className="text-sm"><strong>修复建议:</strong> {lastDiagnosis.suggestedFix}</p>
           </div>
         )}
       </div>

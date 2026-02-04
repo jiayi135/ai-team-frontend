@@ -2,6 +2,7 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { McpTool, Skill, ApiPermission } from './role_registry';
 import { ROLE_CAPABILITIES } from './role_registry';
+import { diagnoseAndSuggestFix, ErrorDiagnosis } from './tester_engine';
 
 const execAsync = promisify(exec);
 
@@ -9,12 +10,14 @@ export interface ExecutionResult {
   success: boolean;
   output?: string;
   error?: string;
+  diagnosis?: ErrorDiagnosis; // 添加诊断信息
 }
 
 export interface TaskInstruction {
   role: string; // 执行任务的角色
   goal: string; // 任务目标
   context: string; // 任务上下文
+  attempt?: number; // 尝试次数，用于修复循环
 }
 
 // 调用 Python 脚本生成代码
@@ -65,7 +68,6 @@ async function executeShellCommand(command: string): Promise<ExecutionResult> {
     const { stdout, stderr } = await execAsync(command);
     if (stderr) {
       console.warn(`[Executor] Stderr (may contain warnings): ${stderr}`);
-      // Don't return error for warnings or non-critical stderr messages, but log them
     }
     console.log(`[Executor] Stdout: ${stdout}`);
     return { success: true, output: stdout };
@@ -83,14 +85,47 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
     return { success: false, error: `Role ${instruction.role} not found or has no defined capabilities.` };
   }
 
-  // 1. LLM 生成代码/脚本
-  const generatedCommand = await generateCodeWithLLM(instruction);
-  if (!generatedCommand) {
-    return { success: false, error: "LLM failed to generate a command." };
+  let currentInstruction = { ...instruction };
+  let executionAttempts = 0;
+  const MAX_ATTEMPTS = 3; // 最多尝试修复3次
+
+  while (executionAttempts < MAX_ATTEMPTS) {
+    executionAttempts++;
+    console.log(`[Executor] Attempt ${executionAttempts} for goal: ${currentInstruction.goal}`);
+
+    // 1. LLM 生成代码/脚本
+    let generatedCommand: string;
+    try {
+      generatedCommand = await generateCodeWithLLM(currentInstruction);
+    } catch (llmError: any) {
+      return { success: false, error: `LLM code generation failed: ${llmError.message}` };
+    }
+
+    if (!generatedCommand) {
+      return { success: false, error: "LLM failed to generate a command." };
+    }
+
+    // 2. 执行生成的代码/脚本
+    const executionResult = await executeShellCommand(generatedCommand);
+
+    if (executionResult.success) {
+      return executionResult; // 成功，返回结果
+    } else {
+      // 执行失败，触发 Tester 进行诊断
+      console.warn(`[Executor] Execution failed. Triggering Tester for diagnosis.`);
+      const diagnosis = await diagnoseAndSuggestFix(executionResult.error || "Unknown error", currentInstruction.context);
+      console.log(`[Executor] Tester Diagnosis: ${JSON.stringify(diagnosis, null, 2)}`);
+
+      // 更新上下文，尝试让 LLM 重新生成代码
+      currentInstruction.context = `原始任务：${instruction.goal}\n上次执行失败，错误输出：${executionResult.error}\nTester 诊断：${diagnosis.diagnosis}\n修复建议：${diagnosis.suggestedFix}\n请根据修复建议重新生成代码。`;
+      currentInstruction.attempt = executionAttempts;
+      executionResult.diagnosis = diagnosis; // 将诊断信息附加到结果中
+
+      if (executionAttempts >= MAX_ATTEMPTS) {
+        return executionResult; // 达到最大尝试次数，返回最终失败结果和诊断
+      }
+    }
   }
 
-  // 2. 执行生成的代码/脚本
-  // 权限校验逻辑应在此处添加，例如检查生成的命令是否符合角色的 MCP 工具或 API 权限
-  console.log(`[Executor] Role ${instruction.role} is attempting to execute: ${generatedCommand}`);
-  return executeShellCommand(generatedCommand);
+  return { success: false, error: "Reached maximum execution attempts without success." };
 }
