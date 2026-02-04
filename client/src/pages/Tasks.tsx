@@ -4,7 +4,7 @@ import { TASK_STATUS, ROLES } from '@/lib/constants';
 import { getTaskStatusColor, formatTime, formatDuration } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug, Rocket } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug, Rocket, Scale } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -26,6 +26,13 @@ interface ErrorDiagnosis {
   isLogicError: boolean;
   diagnosis: string;
   suggestedFix: string;
+}
+
+interface ArbitrationDecision {
+  decision: string; // 仲裁专家的最终决策
+  reasoning: string; // 决策依据，可能引用宪法条款
+  impact: string; // 决策对任务或系统的影响
+  constitutionalClause?: string; // 引用的宪法条款
 }
 
 const mockTasks: Task[] = [
@@ -131,6 +138,7 @@ export default function Tasks() {
   const [executionOutput, setExecutionOutput] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [lastDiagnosis, setLastDiagnosis] = useState<ErrorDiagnosis | null>(null);
+  const [lastArbitration, setLastArbitration] = useState<ArbitrationDecision | null>(null);
   const [attemptCount, setAttemptCount] = useState<number>(0);
   const [vercelProjectId, setVercelProjectId] = useState<string>('');
   const [vercelAlias, setVercelAlias] = useState<string>('');
@@ -153,6 +161,7 @@ export default function Tasks() {
     setIsExecuting(true);
     setExecutionOutput('正在生成并执行代码...\n');
     setLastDiagnosis(null);
+    setLastArbitration(null);
     setAttemptCount(0);
 
     let currentAttempt = 0;
@@ -166,12 +175,15 @@ export default function Tasks() {
 
       let currentGoal = executionGoal;
       if (currentGoal.includes("部署到 Vercel")) {
-        if (!vercelProjectId || !vercelAlias) {
-          setExecutionOutput(prev => prev + `错误：部署到 Vercel 需要提供项目 ID 和别名。`);
+        if (!vercelProjectId) {
+          setExecutionOutput(prev => prev + `错误：部署到 Vercel 需要提供项目 ID。`);
           setIsExecuting(false);
           return;
         }
-        currentGoal = `部署到 Vercel，项目 ID: ${vercelProjectId}，别名: ${vercelAlias}`;
+        currentGoal = `部署到 Vercel，项目 ID: ${vercelProjectId}`;
+        if (vercelAlias) {
+          currentGoal += `, 别名: ${vercelAlias}`;
+        }
       }
 
       try {
@@ -197,17 +209,24 @@ export default function Tasks() {
           if (result.diagnosis) {
             setLastDiagnosis(result.diagnosis);
             setExecutionOutput(prev => prev + `\n[Tester 诊断]: ${result.diagnosis.diagnosis}\n[修复建议]: ${result.diagnosis.suggestedFix}\n`);
-            // 如果是最后一次尝试，或者没有修复建议，则不再重试
-            if (currentAttempt >= MAX_ATTEMPTS || !result.diagnosis.suggestedFix) {
-              setIsExecuting(false);
-              return; // 达到最大尝试次数或无法修复，退出循环
-            }
-            // 更新 goal，让 LLM 尝试修复
-            setExecutionGoal(prevGoal => `${prevGoal} (修复建议: ${result.diagnosis.suggestedFix})`);
-          } else {
-            setIsExecuting(false);
-            return; // 没有诊断信息，直接退出
           }
+          if (result.arbitrationDecision) {
+            setLastArbitration(result.arbitrationDecision);
+            setExecutionOutput(prev => prev + `\n[仲裁专家决策]: ${result.arbitrationDecision.decision}\n[决策依据]: ${result.arbitrationDecision.reasoning}\n[决策影响]: ${result.arbitrationDecision.impact}\n`);
+            if (result.arbitrationDecision.constitutionalClause) {
+              setExecutionOutput(prev => prev + `[引用宪法条款]: ${result.arbitrationDecision.constitutionalClause}\n`);
+            }
+            setIsExecuting(false);
+            return; // 仲裁介入，任务结束
+          }
+
+          // 如果是最后一次尝试，或者没有修复建议，则不再重试
+          if (currentAttempt >= MAX_ATTEMPTS || !result.diagnosis?.suggestedFix) {
+            setIsExecuting(false);
+            return; // 达到最大尝试次数或无法修复，退出循环
+          }
+          // 更新 goal，让 LLM 尝试修复
+          setExecutionGoal(prevGoal => `${prevGoal} (修复建议: ${result.diagnosis?.suggestedFix})`);
         }
       } catch (error: any) {
         setExecutionOutput(prev => prev + `请求失败！\n错误: ${error.message}`);
@@ -312,7 +331,7 @@ export default function Tasks() {
           </div>
         )}
 
-        {lastDiagnosis && !lastDiagnosis.isSyntaxError && !lastDiagnosis.isPermissionError && !lastDiagnosis.isLogicError && ( // 仅在有诊断信息且不是成功时显示
+        {lastDiagnosis && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
             <h3 className="font-bold text-red-800 flex items-center gap-2 mb-2">
               <Bug size={20} />
@@ -320,6 +339,21 @@ export default function Tasks() {
             </h3>
             <p className="text-sm mb-1"><strong>诊断:</strong> {lastDiagnosis.diagnosis}</p>
             <p className="text-sm"><strong>修复建议:</strong> {lastDiagnosis.suggestedFix}</p>
+          </div>
+        )}
+
+        {lastArbitration && (
+          <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4 text-orange-700">
+            <h3 className="font-bold text-orange-800 flex items-center gap-2 mb-2">
+              <Scale size={20} />
+              仲裁专家决策
+            </h3>
+            <p className="text-sm mb-1"><strong>决策:</strong> {lastArbitration.decision}</p>
+            <p className="text-sm mb-1"><strong>依据:</strong> {lastArbitration.reasoning}</p>
+            <p className="text-sm mb-1"><strong>影响:</strong> {lastArbitration.impact}</p>
+            {lastArbitration.constitutionalClause && (
+              <p className="text-sm"><strong>引用宪法条款:</strong> {lastArbitration.constitutionalClause}</p>
+            )}
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import { McpTool, Skill, ApiPermission } from './role_registry';
 import { ROLE_CAPABILITIES } from './role_registry';
 import { diagnoseAndSuggestFix, ErrorDiagnosis } from './tester_engine';
+import { arbitrateConflict, ArbitrationDecision } from './arbitrator'; // 导入仲裁专家模块
 
 const execAsync = promisify(exec);
 
@@ -11,6 +12,7 @@ export interface ExecutionResult {
   output?: string;
   error?: string;
   diagnosis?: ErrorDiagnosis; // 添加诊断信息
+  arbitrationDecision?: ArbitrationDecision; // 添加仲裁决策信息
 }
 
 export interface TaskInstruction {
@@ -77,12 +79,6 @@ async function executeShellCommand(command: string): Promise<ExecutionResult> {
   }
 }
 
-// 调用 MCP 工具
-async function callMcpTool(toolName: string, serverName: string, inputArgs: string): Promise<ExecutionResult> {
-  const command = `manus-mcp-cli tool call ${toolName} --server ${serverName} --input '${inputArgs}'`;
-  return executeShellCommand(command);
-}
-
 // 主执行函数
 export async function executeTask(instruction: TaskInstruction): Promise<ExecutionResult> {
   const roleCapabilities = ROLE_CAPABILITIES[instruction.role];
@@ -112,8 +108,6 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
     }
 
     // 2. 执行生成的代码/脚本
-    // 这里需要更智能地判断是执行 shell 命令还是调用 MCP 工具
-    // 暂时简化处理，假设 LLM 直接生成可执行的 shell 命令，包括 manus-mcp-cli 调用
     const executionResult = await executeShellCommand(generatedCommand);
 
     if (executionResult.success) {
@@ -124,14 +118,21 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       const diagnosis = await diagnoseAndSuggestFix(executionResult.error || "Unknown error", currentInstruction.context);
       console.log(`[Executor] Tester Diagnosis: ${JSON.stringify(diagnosis, null, 2)}`);
 
+      // 将诊断信息附加到结果中
+      executionResult.diagnosis = diagnosis;
+
+      // 如果达到最大尝试次数，或者 Tester 诊断为逻辑错误且没有明确修复建议，则升级到仲裁专家
+      if (executionAttempts >= MAX_ATTEMPTS || (diagnosis.isLogicError && !diagnosis.suggestedFix)) {
+        console.warn(`[Executor] Max attempts reached or unresolvable logic error. Escalating to Arbitration Expert.`);
+        const conflictDescription = `任务 [${instruction.goal}] 在 ${executionAttempts} 次尝试后仍然失败。最后一次错误：${executionResult.error}。Tester 诊断：${diagnosis.diagnosis}。`;
+        const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
+        executionResult.arbitrationDecision = arbitrationDecision;
+        return executionResult; // 返回最终失败结果和仲裁决策
+      }
+
       // 更新上下文，尝试让 LLM 重新生成代码
       currentInstruction.context = `原始任务：${instruction.goal}\n上次执行失败，错误输出：${executionResult.error}\nTester 诊断：${diagnosis.diagnosis}\n修复建议：${diagnosis.suggestedFix}\n请根据修复建议重新生成代码。`;
       currentInstruction.attempt = executionAttempts;
-      executionResult.diagnosis = diagnosis; // 将诊断信息附加到结果中
-
-      if (executionAttempts >= MAX_ATTEMPTS) {
-        return executionResult; // 达到最大尝试次数，返回最终失败结果和诊断
-      }
     }
   }
 
