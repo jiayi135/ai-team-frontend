@@ -77,6 +77,12 @@ async function executeShellCommand(command: string): Promise<ExecutionResult> {
   }
 }
 
+// 调用 MCP 工具
+async function callMcpTool(toolName: string, serverName: string, inputArgs: string): Promise<ExecutionResult> {
+  const command = `manus-mcp-cli tool call ${toolName} --server ${serverName} --input '${inputArgs}'`;
+  return executeShellCommand(command);
+}
+
 // 主执行函数
 export async function executeTask(instruction: TaskInstruction): Promise<ExecutionResult> {
   const roleCapabilities = ROLE_CAPABILITIES[instruction.role];
@@ -106,6 +112,8 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
     }
 
     // 2. 执行生成的代码/脚本
+    // 这里需要更智能地判断是执行 shell 命令还是调用 MCP 工具
+    // 暂时简化处理，假设 LLM 直接生成可执行的 shell 命令，包括 manus-mcp-cli 调用
     const executionResult = await executeShellCommand(generatedCommand);
 
     if (executionResult.success) {

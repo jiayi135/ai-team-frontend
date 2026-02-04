@@ -2,7 +2,6 @@ import os
 import json
 from openai import OpenAI
 
-# 从环境变量获取 API 密钥，或者使用预配置的客户端
 client = OpenAI()
 
 def generate_code(role: str, goal: str, context: str) -> str:
@@ -18,6 +17,7 @@ def generate_code(role: str, goal: str, context: str) -> str:
     如果需要执行 Python 代码，请先将代码写入文件，然后用 `python3 文件名` 执行。
     如果需要使用 GitHub CLI (gh)，请直接使用 `gh` 命令。
     如果需要使用 Vercel CLI (vercel)，请直接使用 `vercel` 命令。
+    如果需要部署到 Vercel，请生成 `manus-mcp-cli tool call deploy --server vercel --input '{{\"project_id\": \"<YOUR_VERCEL_PROJECT_ID>\", \"alias\": \"<YOUR_DEPLOYMENT_ALIAS>\"}}'` 这样的命令，其中 `<YOUR_VERCEL_PROJECT_ID>` 和 `<YOUR_DEPLOYMENT_ALIAS>` 需要根据上下文替换。
     如果目标是创建一个新的 React 组件，请生成一个 TypeScript React 组件文件的内容，并使用 `mkdir -p 目录 && echo \"内容\" > 文件名` 的形式输出。
 
     请直接输出命令或代码片段，不要包含任何解释性文字，不要使用 Markdown 代码块。

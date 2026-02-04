@@ -4,7 +4,7 @@ import { TASK_STATUS, ROLES } from '@/lib/constants';
 import { getTaskStatusColor, formatTime, formatDuration } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug, Rocket } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -132,6 +132,8 @@ export default function Tasks() {
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [lastDiagnosis, setLastDiagnosis] = useState<ErrorDiagnosis | null>(null);
   const [attemptCount, setAttemptCount] = useState<number>(0);
+  const [vercelProjectId, setVercelProjectId] = useState<string>('');
+  const [vercelAlias, setVercelAlias] = useState<string>('');
 
   const filteredTasks = mockTasks.filter((task) => {
     const matchesFilter = filter === 'all' || task.status === filter;
@@ -162,6 +164,16 @@ export default function Tasks() {
       setExecutionOutput(prev => prev + `\n--- 尝试 ${currentAttempt} ---\n`);
       setExecutionOutput(prev => prev + `[${executionRole}] 目标: ${executionGoal}\n`);
 
+      let currentGoal = executionGoal;
+      if (currentGoal.includes("部署到 Vercel")) {
+        if (!vercelProjectId || !vercelAlias) {
+          setExecutionOutput(prev => prev + `错误：部署到 Vercel 需要提供项目 ID 和别名。`);
+          setIsExecuting(false);
+          return;
+        }
+        currentGoal = `部署到 Vercel，项目 ID: ${vercelProjectId}，别名: ${vercelAlias}`;
+      }
+
       try {
         const response = await fetch('http://localhost:3001/api/execute/task', {
           method: 'POST',
@@ -170,7 +182,7 @@ export default function Tasks() {
           },
           body: JSON.stringify({
             role: executionRole,
-            goal: executionGoal,
+            goal: currentGoal,
             context: `当前项目是一个基于 React, Vite, TailwindCSS 的前端应用。这是第 ${currentAttempt} 次尝试。`
           }),
         });
@@ -240,7 +252,7 @@ export default function Tasks() {
             <input
               type="text"
               id="executionGoal"
-              placeholder="例如：创建一个名为 MyComponent 的 React 组件"
+              placeholder="例如：创建一个名为 MyComponent 的 React 组件 或 部署到 Vercel"
               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
               value={executionGoal}
               onChange={(e) => setExecutionGoal(e.target.value)}
@@ -248,9 +260,42 @@ export default function Tasks() {
             />
           </div>
         </div>
+
+        {executionGoal.includes("部署到 Vercel") && executionRole === ROLES.DEVELOPER && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+            <div className="flex items-center gap-2 text-blue-700 font-medium">
+              <Rocket size={18} /> Vercel 部署配置
+            </div>
+            <div>
+              <label htmlFor="vercelProjectId" className="block text-sm font-medium text-slate-700 mb-1">Vercel 项目 ID</label>
+              <input
+                type="text"
+                id="vercelProjectId"
+                placeholder="例如：prj_xxxxxxxxxxxxxxxxxxxx"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={vercelProjectId}
+                onChange={(e) => setVercelProjectId(e.target.value)}
+                disabled={isExecuting}
+              />
+            </div>
+            <div>
+              <label htmlFor="vercelAlias" className="block text-sm font-medium text-slate-700 mb-1">部署别名 (可选)</label>
+              <input
+                type="text"
+                id="vercelAlias"
+                placeholder="例如：my-app-staging"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                value={vercelAlias}
+                onChange={(e) => setVercelAlias(e.target.value)}
+                disabled={isExecuting}
+              />
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleExecuteTask}
-          disabled={isExecuting || !executionGoal}
+          disabled={isExecuting || !executionGoal || (executionGoal.includes("部署到 Vercel") && executionRole === ROLES.DEVELOPER && (!vercelProjectId))}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
         >
           {isExecuting ? (
