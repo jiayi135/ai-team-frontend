@@ -1,9 +1,10 @@
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { McpTool, Skill, ApiPermission } from './role_registry';
+import { McpClient } from './mcp_client';
 import { ROLE_CAPABILITIES } from './role_registry';
 import { diagnoseAndSuggestFix, ErrorDiagnosis } from './tester_engine';
-import { arbitrateConflict, ArbitrationDecision } from './arbitrator'; // 导入仲裁专家模块
+import { arbitrateConflict, ArbitrationDecision } from './arbitrator';
+import { validateAgainstConstitution, GovernanceValidationResult } from './governance_hook'; // 导入治理钩子
 
 const execAsync = promisify(exec);
 
@@ -11,15 +12,16 @@ export interface ExecutionResult {
   success: boolean;
   output?: string;
   error?: string;
-  diagnosis?: ErrorDiagnosis; // 添加诊断信息
-  arbitrationDecision?: ArbitrationDecision; // 添加仲裁决策信息
+  diagnosis?: ErrorDiagnosis;
+  arbitrationDecision?: ArbitrationDecision;
+  governanceValidation?: GovernanceValidationResult; // 添加治理验证结果
 }
 
 export interface TaskInstruction {
-  role: string; // 执行任务的角色
-  goal: string; // 任务目标
-  context: string; // 任务上下文
-  attempt?: number; // 尝试次数，用于修复循环
+  role: string;
+  goal: string;
+  context: string;
+  attempt?: number;
 }
 
 // 调用 Python 脚本生成代码
@@ -63,8 +65,49 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
   });
 }
 
-// 执行 Shell 命令
-async function executeShellCommand(command: string): Promise<ExecutionResult> {
+// 执行 Shell 命令或 MCP 工具调用
+async function executeCommandOrMcpTool(command: string, role: string, context: string): Promise<ExecutionResult> {
+  const roleCapabilities = ROLE_CAPABILITIES[role];
+
+  // 1. 宪法约束验证
+  const validationResult = await validateAgainstConstitution(command, role, context);
+  if (!validationResult.isValid) {
+    console.warn(`[GovernanceHook] Command failed constitutional validation: ${validationResult.reason}`);
+    return {
+      success: false,
+      error: `Governance validation failed: ${validationResult.reason}`,
+      governanceValidation: validationResult,
+    };
+  }
+
+  // 检查是否是 MCP 工具调用
+  if (command.startsWith('manus-mcp-cli')) {
+    const parts = command.split(' ');
+    const toolCallIndex = parts.indexOf('call');
+    const serverIndex = parts.indexOf('--server');
+    const inputIndex = parts.indexOf('--input');
+
+    if (toolCallIndex !== -1 && serverIndex !== -1 && inputIndex !== -1) {
+      const toolName = parts[toolCallIndex + 1];
+      const serverName = parts[serverIndex + 1];
+      const inputJson = parts.slice(inputIndex + 1).join(' ').replace(/^'|'$/g, ''); // 移除单引号
+
+      // 验证角色是否有权限调用此 MCP 工具
+      if (!roleCapabilities.mcpTools || !roleCapabilities.mcpTools.some(mcpTool => mcpTool.server === serverName && mcpTool.tools.includes(toolName))) {
+        return { success: false, error: `Role ${role} does not have permission to call MCP tool ${toolName} on server ${serverName}.` };
+      }
+
+      try {
+        const mcpClient = new McpClient(serverName);
+        const result = await mcpClient.callTool(toolName, JSON.parse(inputJson));
+        return { success: true, output: JSON.stringify(result, null, 2) };
+      } catch (error: any) {
+        return { success: false, error: `MCP tool execution failed: ${error.message}` };
+      }
+    }
+  }
+
+  // 否则，执行普通的 Shell 命令
   try {
     console.log(`[Executor] Executing shell command: ${command}`);
     const { stdout, stderr } = await execAsync(command);
@@ -89,7 +132,7 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
 
   let currentInstruction = { ...instruction };
   let executionAttempts = 0;
-  const MAX_ATTEMPTS = 3; // 最多尝试修复3次
+  const MAX_ATTEMPTS = 3;
 
   while (executionAttempts < MAX_ATTEMPTS) {
     executionAttempts++;
@@ -107,12 +150,21 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return { success: false, error: "LLM failed to generate a command." };
     }
 
-    // 2. 执行生成的代码/脚本
-    const executionResult = await executeShellCommand(generatedCommand);
+    // 2. 执行生成的代码/脚本或 MCP 工具
+    const executionResult = await executeCommandOrMcpTool(generatedCommand, instruction.role, currentInstruction.context);
 
     if (executionResult.success) {
       return executionResult; // 成功，返回结果
     } else {
+      // 如果是治理验证失败，直接触发仲裁
+      if (executionResult.governanceValidation && !executionResult.governanceValidation.isValid) {
+        console.warn(`[Executor] Governance validation failed. Escalating to Arbitration Expert.`);
+        const conflictDescription = `任务 [${instruction.goal}] 因治理验证失败而中止。原因：${executionResult.governanceValidation.reason}。`;
+        const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
+        executionResult.arbitrationDecision = arbitrationDecision;
+        return executionResult; // 返回治理失败结果和仲裁决策
+      }
+
       // 执行失败，触发 Tester 进行诊断
       console.warn(`[Executor] Execution failed. Triggering Tester for diagnosis.`);
       const diagnosis = await diagnoseAndSuggestFix(executionResult.error || "Unknown error", currentInstruction.context);
