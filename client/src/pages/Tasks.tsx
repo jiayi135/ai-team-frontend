@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import { TASK_STATUS } from '@/lib/constants';
+import { TASK_STATUS, ROLES } from '@/lib/constants';
 import { getTaskStatusColor, formatTime, formatDuration } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -28,7 +28,7 @@ const mockTasks: Task[] = [
     progress: 100,
     startTime: new Date(Date.now() - 7200000),
     duration: 3600,
-    assignedRole: 'Architect',
+    assignedRole: ROLES.ARCHITECT,
     priority: 'high',
     iterations: 2,
     cost: 12.50,
@@ -40,7 +40,7 @@ const mockTasks: Task[] = [
     status: TASK_STATUS.RUNNING,
     progress: 65,
     startTime: new Date(Date.now() - 3600000),
-    assignedRole: 'Developer',
+    assignedRole: ROLES.DEVELOPER,
     priority: 'high',
     iterations: 1,
     cost: 8.75,
@@ -52,7 +52,7 @@ const mockTasks: Task[] = [
     status: TASK_STATUS.RUNNING,
     progress: 40,
     startTime: new Date(Date.now() - 1800000),
-    assignedRole: 'Algorithm Expert',
+    assignedRole: ROLES.ALGORITHM_EXPERT,
     priority: 'medium',
     iterations: 3,
     cost: 15.25,
@@ -64,7 +64,7 @@ const mockTasks: Task[] = [
     status: TASK_STATUS.QUEUED,
     progress: 0,
     startTime: new Date(),
-    assignedRole: 'Tester',
+    assignedRole: ROLES.TESTER,
     priority: 'medium',
     iterations: 0,
     cost: 0,
@@ -77,7 +77,7 @@ const mockTasks: Task[] = [
     progress: 25,
     startTime: new Date(Date.now() - 5400000),
     duration: 1800,
-    assignedRole: 'Developer',
+    assignedRole: ROLES.DEVELOPER,
     priority: 'critical',
     iterations: 2,
     cost: 5.50,
@@ -118,6 +118,10 @@ const getPriorityColor = (priority: string) => {
 export default function Tasks() {
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [executionRole, setExecutionRole] = useState<string>(ROLES.DEVELOPER);
+  const [executionGoal, setExecutionGoal] = useState<string>('');
+  const [executionOutput, setExecutionOutput] = useState<string>('');
+  const [isExecuting, setIsExecuting] = useState<boolean>(false);
 
   const filteredTasks = mockTasks.filter((task) => {
     const matchesFilter = filter === 'all' || task.status === filter;
@@ -133,11 +137,96 @@ export default function Tasks() {
     failed: mockTasks.filter((t) => t.status === TASK_STATUS.FAILED).length,
   };
 
+  const handleExecuteTask = async () => {
+    setIsExecuting(true);
+    setExecutionOutput('正在生成并执行代码...\n');
+    try {
+      const response = await fetch('http://localhost:3001/api/execute/task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: executionRole,
+          goal: executionGoal,
+          context: '当前项目是一个基于 React, Vite, TailwindCSS 的前端应用。'
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setExecutionOutput(prev => prev + `执行成功！\n${result.output}`);
+      } else {
+        setExecutionOutput(prev => prev + `执行失败！\n错误: ${result.error}`);
+      }
+    } catch (error: any) {
+      setExecutionOutput(prev => prev + `请求失败！\n错误: ${error.message}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
   return (
     <MainLayout
       title="任务监控"
       subtitle="实时追踪 P.R.O.M.P.T. 任务执行与元认知性能指标"
     >
+      {/* Autonomous Execution Console */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-8">
+        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Terminal size={24} className="text-blue-600" />
+          自主执行控制台
+        </h2>
+        <p className="text-slate-600 mb-4">选择一个角色，输入任务目标，AI 将自动生成并执行代码。</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label htmlFor="executionRole" className="block text-sm font-medium text-slate-700 mb-1">执行角色</label>
+            <select
+              id="executionRole"
+              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              value={executionRole}
+              onChange={(e) => setExecutionRole(e.target.value)}
+              disabled={isExecuting}
+            >
+              {Object.values(ROLES).map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="executionGoal" className="block text-sm font-medium text-slate-700 mb-1">任务目标</label>
+            <input
+              type="text"
+              id="executionGoal"
+              placeholder="例如：创建一个名为 MyComponent 的 React 组件"
+              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              value={executionGoal}
+              onChange={(e) => setExecutionGoal(e.target.value)}
+              disabled={isExecuting}
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleExecuteTask}
+          disabled={isExecuting || !executionGoal}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+        >
+          {isExecuting ? (
+            <Clock size={20} className="animate-spin" />
+          ) : (
+            <Play size={20} />
+          )}
+          {isExecuting ? '执行中...' : '开始自主执行'}
+        </button>
+
+        {executionOutput && (
+          <div className="mt-6 bg-slate-800 text-white p-4 rounded-lg font-mono text-sm overflow-auto max-h-60">
+            <pre>{executionOutput}</pre>
+          </div>
+        )}
+      </div>
+
       {/* Stats Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-sm">
