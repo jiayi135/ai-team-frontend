@@ -55,6 +55,7 @@ export default function Roles() {
             color={roleData.color}
             icon={roleIcons[roleKey as keyof typeof roleIcons]}
             isActive={roleKey === ROLES.ARCHITECT}
+            roleId={roleKey}
           />
         ))}
       </div>
