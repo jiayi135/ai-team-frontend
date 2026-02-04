@@ -7,19 +7,19 @@ import {
   DollarSign,
   Activity,
   BarChart3,
-  ChevronDown,
   Menu,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Roles', href: '/roles', icon: Users },
-  { label: 'Negotiations', href: '/negotiations', icon: GitBranch },
-  { label: 'Tasks', href: '/tasks', icon: Activity },
-  { label: 'Costs', href: '/costs', icon: DollarSign },
-  { label: 'System Health', href: '/health', icon: BarChart3 },
+  { label: '仪表盘', href: '/', icon: LayoutDashboard },
+  { label: '角色管理', href: '/roles', icon: Users },
+  { label: '协商可视化', href: '/negotiations', icon: GitBranch },
+  { label: '任务监控', href: '/tasks', icon: Activity },
+  { label: '成本管理', href: '/costs', icon: DollarSign },
+  { label: '系统健康', href: '/health', icon: BarChart3 },
 ];
 
 export default function Sidebar() {
@@ -48,11 +48,11 @@ export default function Sidebar() {
         <div className="p-6 border-b border-slate-800">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">AI</span>
+              <ShieldCheck className="text-white" size={20} />
             </div>
-            <span>Team</span>
+            <span>AI 法点</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">P.R.O.M.P.T. Framework</p>
+          <p className="text-xs text-slate-400 mt-1">P.R.O.M.P.T. 治理框架</p>
         </div>
 
         {/* Navigation */}
@@ -88,10 +88,10 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="p-4 border-t border-slate-800">
           <div className="bg-slate-800 rounded-lg p-3 text-sm">
-            <p className="text-slate-300 mb-2">System Status</p>
+            <p className="text-slate-300 mb-2">系统状态</p>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-slate-400">Operational</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-slate-400">运行正常</span>
             </div>
           </div>
         </div>

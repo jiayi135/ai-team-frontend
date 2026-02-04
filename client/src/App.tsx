@@ -7,6 +7,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Roles from "./pages/Roles";
 import Negotiations from "./pages/Negotiations";
+import Tasks from "./pages/Tasks";
+import Costs from "./pages/Costs";
+import Health from "./pages/Health";
 
 
 function Router() {
@@ -15,6 +18,9 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/roles"} component={Roles} />
       <Route path={"/negotiations"} component={Negotiations} />
+      <Route path={"/tasks"} component={Tasks} />
+      <Route path={"/costs"} component={Costs} />
+      <Route path={"/health"} component={Health} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

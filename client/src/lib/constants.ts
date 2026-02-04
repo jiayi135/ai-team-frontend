@@ -14,69 +14,69 @@ export const ROLES = {
 
 export const ROLE_DETAILS = {
   [ROLES.ARCHITECT]: {
-    title: 'Architect',
+    title: '架构师 (Architect)',
     icon: 'layout',
     color: 'orange',
-    description: 'System-level design and technical stack selection',
+    description: '系统级设计与技术栈选型',
     responsibilities: [
-      'System-level design',
-      'Technical stack selection',
-      'High-level requirement analysis',
-      'Long-term system scalability',
+      '系统级架构设计',
+      '技术栈选型与评估',
+      '高层需求分析',
+      '确保系统长期可扩展性',
     ],
-    restrictions: 'Cannot modify or implement source code without Developer review',
+    restrictions: '未经开发者评审，不得直接修改或实现源代码',
   },
   [ROLES.DEVELOPER]: {
-    title: 'Developer',
+    title: '开发者 (Developer)',
     icon: 'code',
     color: 'blue',
-    description: 'Code implementation and optimization',
+    description: '代码实现与性能优化',
     responsibilities: [
-      'Code implementation',
-      'Performance optimization',
-      'Architectural specification translation',
-      'High-performance logic execution',
+      '高质量代码实现',
+      '性能瓶颈优化',
+      '架构规范的逻辑转化',
+      '高性能逻辑执行',
     ],
-    restrictions: 'Cannot alter architectural schemas or deployment configurations',
+    restrictions: '禁止在未经架构师批准的情况下更改架构模式或部署配置',
   },
   [ROLES.ALGORITHM_EXPERT]: {
-    title: 'Algorithm Expert',
+    title: '算法专家 (Algorithm Expert)',
     icon: 'zap',
     color: 'purple',
-    description: 'Core algorithm optimization and performance analysis',
+    description: '核心算法优化与高级性能分析',
     responsibilities: [
-      'Algorithm optimization',
-      'Advanced performance analysis',
-      'Computational overhead minimization',
-      'Logic validation',
+      '核心算法优化',
+      '高级性能指标分析',
+      '最小化计算开销',
+      '逻辑严密性验证',
     ],
-    restrictions: 'Cannot alter architectural schemas or deployment configurations',
+    restrictions: '不得更改架构模式或部署配置',
   },
   [ROLES.TESTER]: {
-    title: 'Tester',
+    title: '测试员 (Tester)',
     icon: 'check-square',
     color: 'green',
-    description: 'Automated verification and test case design',
+    description: '自动化验证与测试用例设计',
     responsibilities: [
-      'Automated verification',
-      'Test case design',
-      'Feedback loop management',
-      'System reliability assurance',
+      '自动化功能验证',
+      '测试用例设计与执行',
+      '反馈循环管理',
+      '系统可靠性保障',
     ],
-    restrictions: 'Cannot approve its own code; must maintain independence from Developer',
+    restrictions: '不能批准自己的代码；必须保持与开发者角色的严格独立',
   },
   [ROLES.ARBITRATION_EXPERT]: {
-    title: 'Arbitration Expert',
+    title: '仲裁专家 (Arbitration Expert)',
     icon: 'scale',
     color: 'gray',
-    description: 'Technical deadlock adjudication and consensus building',
+    description: '技术僵局裁决与共识构建',
     responsibilities: [
-      'Technical deadlock resolution',
-      'Weighted voting',
-      'Multi-dimensional evaluation',
-      'Consensus enforcement',
+      '解决技术决策僵局',
+      '执行加权投票机制',
+      '多维度评估决策',
+      '强制执行最终共识',
     ],
-    restrictions: 'Only activated when Autonomous Negotiation engine fails',
+    restrictions: '仅在自主协商引擎无法达成共识时激活',
   },
 } as const;
 
@@ -92,82 +92,82 @@ export const PROMPT_PILLARS = {
 
 export const PILLAR_DETAILS = {
   [PROMPT_PILLARS.PURPOSE]: {
-    title: 'Purpose',
-    description: 'Goal Definition & Intent Alignment',
-    impact: 'Eliminates task drift; ensures the system solves the correct problem',
+    title: 'Purpose (目标定义)',
+    description: '意图对齐与目标深度分析',
+    impact: '消除任务漂移；确保系统解决正确的问题',
   },
   [PROMPT_PILLARS.ROLE]: {
-    title: 'Role & Restrictions',
-    description: 'Identity & Behavioral Boundaries',
-    impact: 'Ensures high-fidelity specialized output; prevents generic logic failures',
+    title: 'Role (角色边界)',
+    description: '身份定位与行为边界强制执行',
+    impact: '确保高保真专业输出；防止通用逻辑失效',
   },
   [PROMPT_PILLARS.OPERATION]: {
-    title: 'Operation & Output',
-    description: 'Task Decomposition & Structural Utility',
-    impact: 'Guarantees outputs are deterministic and machine-parsable',
+    title: 'Operation (操作结构)',
+    description: '任务分解与结构化输出管理',
+    impact: '保证输出是确定性的且易于机器解析',
   },
   [PROMPT_PILLARS.MEDIA]: {
-    title: 'Media & Mining',
-    description: 'Context & Exploratory Learning',
-    impact: 'Maximizes proprietary data value; surfaces non-obvious insights',
+    title: 'Media (上下文挖掘)',
+    description: '信息源优先级与探索性学习',
+    impact: '最大化私有数据价值；通过深度挖掘发现非显性洞察',
   },
   [PROMPT_PILLARS.PLANNED]: {
-    title: 'Planned Iteration',
-    description: 'Dialogue Pathing & Anticipatory Thinking',
-    impact: 'Prevents fragmented interactions; creates coherent chain of thought',
+    title: 'Planned (计划迭代)',
+    description: '对话路径规划与前瞻性思考',
+    impact: '防止碎片化交互；在复杂任务周期中创建连贯思维链',
   },
   [PROMPT_PILLARS.TRACING]: {
-    title: 'Tracing & Verification',
-    description: 'Evidence & Audit Trail',
-    impact: 'Ensures non-repudiation; provides deterministic audit trail',
+    title: 'Tracing (溯源验证)',
+    description: '证据锚定与审计追踪',
+    impact: '确保断言不可否认；为调试和合规提供确定性审计轨迹',
   },
 } as const;
 
 // Negotiation Conflict Dimensions
 export const CONFLICT_DIMENSIONS = [
-  'Tech Stack',
-  'Architectural Patterns',
-  'Requirements Alignment',
-  'Data Flow',
-  'Internal Logic',
-  'Performance Metrics',
-  'Security',
+  '技术栈 (Tech Stack)',
+  '架构模式 (Architectural Patterns)',
+  '需求对齐 (Requirements Alignment)',
+  '数据流 (Data Flow)',
+  '内部逻辑 (Internal Logic)',
+  '性能指标 (Performance Metrics)',
+  '安全性 (Security)',
 ] as const;
 
 // Negotiation Status
 export const NEGOTIATION_STATUS = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in_progress',
-  CONSENSUS_REACHED: 'consensus_reached',
-  EXPERT_ARBITRATION: 'expert_arbitration',
-  RESOLVED: 'resolved',
-  FAILED: 'failed',
+  PENDING: '等待中',
+  IN_PROGRESS: '协商中',
+  CONSENSUS_REACHED: '达成共识',
+  EXPERT_ARBITRATION: '专家仲裁',
+  RESOLVED: '已解决',
+  FAILED: '协商失败',
 } as const;
 
 // Task Status
 export const TASK_STATUS = {
-  QUEUED: 'queued',
-  RUNNING: 'running',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
+  QUEUED: '队列中',
+  RUNNING: '执行中',
+  COMPLETED: '已完成',
+  FAILED: '失败',
+  CANCELLED: '已取消',
 } as const;
 
 // Cost Categories
 export const COST_CATEGORIES = {
-  COMPUTE: 'compute',
-  STORAGE: 'storage',
-  NETWORK: 'network',
-  API_CALLS: 'api_calls',
-  TOKENS: 'tokens',
+  COMPUTE: '计算资源',
+  STORAGE: '存储',
+  NETWORK: '网络',
+  API_CALLS: 'API 调用',
+  TOKENS: 'Token 消耗',
 } as const;
 
 // System Health Status
 export const HEALTH_STATUS = {
-  HEALTHY: 'healthy',
-  WARNING: 'warning',
-  CRITICAL: 'critical',
-  OFFLINE: 'offline',
+  HEALTHY: '健康',
+  WARNING: '警告',
+  CRITICAL: '严重',
+  OFFLINE: '离线',
 } as const;
 
 // Color Palette

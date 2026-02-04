@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Clock,
   Zap,
+  ShieldCheck,
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import KPICard from '@/components/dashboard/KPICard';
@@ -24,13 +25,25 @@ export default function Home() {
 
   return (
     <MainLayout
-      title="Dashboard"
-      subtitle="Real-time monitoring of AI Team Governance System"
+      title="仪表盘"
+      subtitle="AI 团队治理系统实时监控 (P.R.O.M.P.T. 框架)"
     >
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 mb-8 text-white shadow-lg">
+        <div className="flex items-center gap-4 mb-4">
+          <ShieldCheck size={32} className="text-blue-200" />
+          <h2 className="text-2xl font-bold">AI 法点：元认知治理中心</h2>
+        </div>
+        <p className="text-blue-100 max-w-2xl leading-relaxed">
+          欢迎使用 AI 团队宪法治理框架。本系统通过元认知审计、自主协商与上下文继承机制，
+          确保多智能体协作的确定性、可扩展性与战略对齐。
+        </p>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <KPICard
-          title="Active Tasks"
+          title="活跃任务"
           value={metrics.activeTasks}
           change={12}
           trend="up"
@@ -38,7 +51,7 @@ export default function Home() {
           color="blue"
         />
         <KPICard
-          title="Total Cost"
+          title="治理总成本"
           value={formatCurrency(metrics.totalCost)}
           change={8.4}
           trend="up"
@@ -46,7 +59,7 @@ export default function Home() {
           color="red"
         />
         <KPICard
-          title="Avg Iterations"
+          title="平均审计轮次"
           value={metrics.avgIterations}
           change={5.2}
           trend="up"
@@ -54,7 +67,7 @@ export default function Home() {
           color="purple"
         />
         <KPICard
-          title="Success Rate"
+          title="治理成功率"
           value={`${metrics.successRate}%`}
           change={2.1}
           trend="up"
@@ -62,7 +75,7 @@ export default function Home() {
           color="green"
         />
         <KPICard
-          title="Avg Response Time"
+          title="平均响应延迟"
           value={metrics.avgResponseTime}
           unit="ms"
           change={-15}
@@ -71,7 +84,7 @@ export default function Home() {
           color="orange"
         />
         <KPICard
-          title="System Load"
+          title="系统认知负载"
           value="65%"
           change={3}
           trend="up"
@@ -83,14 +96,14 @@ export default function Home() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <MetricsChart
-          title="Tokens Per Minute"
+          title="Token 消耗速率 (TPM)"
           baseValue={1200}
           variance={300}
           color="#3b82f6"
           type="area"
         />
         <MetricsChart
-          title="API Calls Per Minute"
+          title="API 调用频率 (CPM)"
           baseValue={45}
           variance={15}
           color="#8b5cf6"
@@ -100,40 +113,40 @@ export default function Home() {
 
       {/* Additional metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Completed Tasks
+            已完成治理任务
           </h3>
           <p className="text-4xl font-bold text-green-600">
             {formatNumber(metrics.completedTasks)}
           </p>
-          <p className="text-sm text-slate-600 mt-2">
-            Last 30 days
+          <p className="text-sm text-slate-500 mt-2">
+            过去 30 天
           </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            System Health
+            系统健康度
           </h3>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <span className="text-2xl">✓</span>
+              <CheckCircle className="text-green-600" size={24} />
             </div>
             <div>
-              <p className="font-semibold text-green-600">Operational</p>
-              <p className="text-sm text-slate-600">All systems nominal</p>
+              <p className="font-bold text-green-600">运行正常</p>
+              <p className="text-sm text-slate-500">所有治理模块均在线</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Active Providers
+            活跃模型供应商
           </h3>
           <p className="text-4xl font-bold text-blue-600">4</p>
-          <p className="text-sm text-slate-600 mt-2">
-            Distributed across regions
+          <p className="text-sm text-slate-500 mt-2">
+            已实现跨区域分布式部署
           </p>
         </div>
       </div>

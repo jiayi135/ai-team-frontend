@@ -8,6 +8,7 @@ import {
   Zap,
   CheckSquare,
   Scale,
+  ShieldAlert,
 } from 'lucide-react';
 
 const roleIcons = {
@@ -21,23 +22,29 @@ const roleIcons = {
 export default function Roles() {
   return (
     <MainLayout
-      title="Role Management"
-      subtitle="Core functional roles in the P.R.O.M.P.T. framework"
+      title="角色管理"
+      subtitle="P.R.O.M.P.T. 治理框架下的核心职能角色"
     >
       {/* Introduction */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-        <h2 className="text-lg font-semibold text-blue-900 mb-2">
-          About Roles
-        </h2>
-        <p className="text-blue-800">
-          The P.R.O.M.P.T. framework defines five core functional roles that work together
-          to ensure high-fidelity outputs and prevent functional overlap. Each role has
-          specific responsibilities and boundary restrictions to maintain system integrity.
-        </p>
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-8 mb-8 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-blue-600 rounded-lg text-white">
+            <ShieldAlert size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-blue-900 mb-2">
+              角色宪法与边界
+            </h2>
+            <p className="text-blue-800 leading-relaxed">
+              P.R.O.M.P.T. 框架定义了五个核心职能角色，通过<strong>元认知审计</strong>确保高保真输出并防止职能重叠。
+              每个角色都有明确的责任范围和边界限制，以维持系统的完整性与确定性。
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Roles Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {Object.entries(ROLE_DETAILS).map(([roleKey, roleData]) => (
           <RoleCard
             key={roleKey}
@@ -53,88 +60,33 @@ export default function Roles() {
       </div>
 
       {/* Collaboration Info */}
-      <div className="mt-12 bg-white rounded-lg border border-slate-200 p-8">
+      <div className="mt-12 bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
         <h2 className="text-2xl font-bold text-slate-900 mb-6">
-          Contextual Heritage & Collaboration
+          上下文继承与协作协议 (Contextual Heritage)
         </h2>
-        <p className="text-slate-700 mb-4">
-          To maintain a complete chain of collaboration, the system employs
-          <strong> Contextual Heritage</strong>. The output of a preceding role (e.g.,
-          Architect) automatically serves as the mandatory input and constraint set for
-          the subsequent role (e.g., Developer). This ensures no strategic intent is lost
-          during handover.
+        <p className="text-slate-600 mb-8 leading-relaxed">
+          为了保持完整的协作链条，系统采用<strong>上下文继承</strong>机制。前序角色的输出自动作为后续角色的强制性输入和约束集，确保在交付过程中不丢失任何战略意图。
         </p>
 
-        <div className="mt-6 space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-orange-100">
-                <span className="text-orange-600 font-bold">1</span>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+          {/* Connection Line (Desktop) */}
+          <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-100 -translate-y-1/2 z-0"></div>
+          
+          {[
+            { id: 1, name: '架构师', color: 'bg-orange-500', desc: '定义架构与规范' },
+            { id: 2, name: '开发者', color: 'bg-blue-500', desc: '代码实现与优化' },
+            { id: 3, name: '算法专家', color: 'bg-purple-500', desc: '性能分析与调优' },
+            { id: 4, name: '测试员', color: 'bg-green-500', desc: '自动化验证与反馈' },
+            { id: 5, name: '仲裁专家', color: 'bg-slate-600', desc: '解决技术僵局' },
+          ].map((step) => (
+            <div key={step.id} className="relative z-10 flex flex-col items-center text-center">
+              <div className={`w-12 h-12 rounded-full ${step.color} text-white flex items-center justify-center font-bold text-lg shadow-lg mb-3 border-4 border-white`}>
+                {step.id}
               </div>
+              <h3 className="font-bold text-slate-900 mb-1">{step.name}</h3>
+              <p className="text-xs text-slate-500 px-2">{step.desc}</p>
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Architect</h3>
-              <p className="text-slate-600">
-                Defines system architecture and technical specifications
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-blue-100">
-                <span className="text-blue-600 font-bold">2</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Developer</h3>
-              <p className="text-slate-600">
-                Implements code based on architectural specifications
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-purple-100">
-                <span className="text-purple-600 font-bold">3</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Algorithm Expert</h3>
-              <p className="text-slate-600">
-                Optimizes algorithms and validates performance
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-green-100">
-                <span className="text-green-600 font-bold">4</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Tester</h3>
-              <p className="text-slate-600">
-                Verifies functionality and maintains quality standards
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-shrink-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-gray-100">
-                <span className="text-gray-600 font-bold">5</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Arbitration Expert</h3>
-              <p className="text-slate-600">
-                Resolves technical deadlocks when consensus cannot be reached
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </MainLayout>

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import MetricsChart from '@/components/dashboard/MetricsChart';
 import { HEALTH_STATUS } from '@/lib/constants';
 import { getHealthStatusColor } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, AlertCircle, XCircle, Clock } from 'lucide-react';
+import { CheckCircle, AlertCircle, XCircle, Clock, Shield, Activity } from 'lucide-react';
 
 interface Service {
   name: string;
@@ -25,31 +25,31 @@ interface AuditLog {
 
 const services: Service[] = [
   {
-    name: 'API Server',
+    name: 'P.R.O.M.P.T. 引擎',
     status: HEALTH_STATUS.HEALTHY,
-    uptime: 99.98,
-    responseTime: 145,
+    uptime: 99.99,
+    responseTime: 120,
     lastCheck: new Date(Date.now() - 30000),
   },
   {
-    name: 'Database',
+    name: '元认知协商服务器',
     status: HEALTH_STATUS.HEALTHY,
     uptime: 99.95,
-    responseTime: 25,
+    responseTime: 450,
     lastCheck: new Date(Date.now() - 45000),
   },
   {
-    name: 'Cache Layer',
+    name: 'ChromaDB 向量检索',
     status: HEALTH_STATUS.WARNING,
-    uptime: 99.50,
-    responseTime: 8,
+    uptime: 98.50,
+    responseTime: 85,
     lastCheck: new Date(Date.now() - 60000),
   },
   {
-    name: 'Message Queue',
+    name: 'MCP 工具链网关',
     status: HEALTH_STATUS.HEALTHY,
     uptime: 99.99,
-    responseTime: 12,
+    responseTime: 15,
     lastCheck: new Date(Date.now() - 20000),
   },
 ];
@@ -57,38 +57,31 @@ const services: Service[] = [
 const auditLogs: AuditLog[] = [
   {
     timestamp: new Date(Date.now() - 300000),
-    action: 'Task Execution',
-    actor: 'Developer',
+    action: '元认知审计',
+    actor: 'Architect',
     status: 'success',
-    details: 'API Implementation task completed successfully',
+    details: '系统架构设计通过 P.R.O.M.P.T. 六大支柱合规性检查',
   },
   {
     timestamp: new Date(Date.now() - 600000),
-    action: 'Negotiation Started',
-    actor: 'System',
-    status: 'success',
-    details: 'Tech Stack Selection negotiation initiated',
+    action: '协商干预',
+    actor: 'Arbitration Expert',
+    status: 'warning',
+    details: '检测到 API 设计模式存在认知漂移，已强制介入',
   },
   {
     timestamp: new Date(Date.now() - 900000),
-    action: 'Cost Alert',
+    action: '成本熔断',
     actor: 'System',
-    status: 'warning',
-    details: 'Provider A costs exceeded threshold',
+    status: 'error',
+    details: 'Provider A 消耗速率异常，已自动切换至备用模型',
   },
   {
     timestamp: new Date(Date.now() - 1200000),
-    action: 'Consensus Reached',
-    actor: 'Arbitration Expert',
+    action: '知识库更新',
+    actor: 'Algorithm Expert',
     status: 'success',
-    details: 'API Design Patterns negotiation resolved',
-  },
-  {
-    timestamp: new Date(Date.now() - 1500000),
-    action: 'Task Failed',
-    actor: 'Tester',
-    status: 'error',
-    details: 'Database Migration task failed - rollback initiated',
+    details: '成功提取并存储 12 条高效协作模式至向量数据库',
   },
 ];
 
@@ -105,155 +98,150 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const getLogStatusColor = (status: string) => {
-  switch (status) {
-    case 'success':
-      return 'bg-green-100 text-green-800';
-    case 'warning':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'error':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-slate-100 text-slate-800';
-  }
-};
-
 export default function Health() {
   const healthyCount = services.filter((s) => s.status === HEALTH_STATUS.HEALTHY).length;
-  const warningCount = services.filter((s) => s.status === HEALTH_STATUS.WARNING).length;
-  const criticalCount = services.filter((s) => s.status === HEALTH_STATUS.CRITICAL).length;
 
   return (
     <MainLayout
-      title="System Health"
-      subtitle="Real-time monitoring and observability"
+      title="系统健康"
+      subtitle="AI 团队治理系统的实时观测与元认知监控"
     >
       {/* Health Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <p className="text-sm text-slate-600 mb-2">Overall Status</p>
-          <div className="flex items-center gap-2">
-            <CheckCircle className="text-green-600" size={24} />
-            <p className="text-2xl font-bold text-green-600">Operational</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+            <Shield className="text-green-600" size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500">整体治理状态</p>
+            <p className="text-2xl font-bold text-green-600">运行正常</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <p className="text-sm text-slate-600 mb-2">Healthy Services</p>
-          <p className="text-4xl font-bold text-green-600">{healthyCount}</p>
-          <p className="text-sm text-slate-600">of {services.length}</p>
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <Activity className="text-blue-600" size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500">活跃服务</p>
+            <p className="text-2xl font-bold text-slate-900">{healthyCount} / {services.length}</p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <p className="text-sm text-slate-600 mb-2">Warnings</p>
-          <p className="text-4xl font-bold text-yellow-600">{warningCount}</p>
-          <p className="text-sm text-slate-600">Requires attention</p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <p className="text-sm text-slate-600 mb-2">Critical</p>
-          <p className="text-4xl font-bold text-red-600">{criticalCount}</p>
-          <p className="text-sm text-slate-600">Immediate action needed</p>
-        </div>
-      </div>
-
-      {/* Services Status */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">
-          Service Status
-        </h3>
-        <div className="space-y-4">
-          {services.map((service, idx) => (
-            <div key={idx} className="border-b border-slate-200 pb-4 last:border-0">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  {getStatusIcon(service.status)}
-                  <div>
-                    <p className="font-medium text-slate-900">{service.name}</p>
-                    <p className="text-xs text-slate-600">
-                      Last check: {service.lastCheck.toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-                <Badge
-                  style={{
-                    backgroundColor: getHealthStatusColor(service.status),
-                    color: 'white',
-                  }}
-                >
-                  {service.status}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-600 mb-1">Uptime</p>
-                  <div className="flex items-center gap-2">
-                    <Progress value={service.uptime} />
-                    <span className="text-sm font-medium text-slate-900">
-                      {service.uptime}%
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 mb-1">Response Time</p>
-                  <p className="text-sm font-medium text-slate-900">
-                    {service.responseTime}ms
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="text-yellow-600" size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500">待处理警报</p>
+            <p className="text-2xl font-bold text-slate-900">2 条</p>
+          </div>
         </div>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <MetricsChart
-          title="CPU Usage"
-          baseValue={45}
-          variance={15}
-          color="#ef4444"
-          type="area"
-        />
-        <MetricsChart
-          title="Memory Usage"
-          baseValue={62}
-          variance={10}
-          color="#f59e0b"
-          type="area"
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* Services Status */}
+        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+            服务可用性
+          </h3>
+          <div className="space-y-6">
+            {services.map((service, idx) => (
+              <div key={idx} className="group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(service.status)}
+                    <div>
+                      <p className="font-bold text-slate-900">{service.name}</p>
+                      <p className="text-xs text-slate-500">
+                        最后检查: {service.lastCheck.toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    style={{
+                      backgroundColor: getHealthStatusColor(service.status),
+                      color: 'white',
+                    }}
+                  >
+                    {service.status}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pl-8">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>正常运行时间 (Uptime)</span>
+                      <span>{service.uptime}%</span>
+                    </div>
+                    <Progress value={service.uptime} className="h-1.5" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">响应延迟</span>
+                    <span className="text-sm font-semibold text-slate-900">{service.responseTime}ms</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Metrics */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+            <MetricsChart
+              title="系统认知负载 (CPU)"
+              baseValue={45}
+              variance={15}
+              color="#3b82f6"
+              type="area"
+            />
+          </div>
+          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+            <MetricsChart
+              title="记忆检索压力 (Memory)"
+              baseValue={62}
+              variance={10}
+              color="#8b5cf6"
+              type="area"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Audit Logs */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">
-          Audit Logs
-        </h3>
-        <div className="space-y-3">
+      <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-900 mb-6">治理审计日志 (Audit Traces)</h3>
+        <div className="space-y-4">
           {auditLogs.map((log, idx) => (
             <div
               key={idx}
-              className="flex items-start gap-4 pb-3 border-b border-slate-200 last:border-0"
+              className="flex items-start gap-4 p-4 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
             >
-              <div className="flex-shrink-0">
-                <Badge className={getLogStatusColor(log.status)}>
-                  {log.status}
-                </Badge>
-              </div>
+              <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                log.status === 'success' ? 'bg-green-500' : 
+                log.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+              }`} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-slate-900">{log.action}</p>
-                  <p className="text-xs text-slate-600 flex-shrink-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="font-bold text-slate-900">{log.action}</p>
+                  <span className="text-xs text-slate-400 font-mono">
                     {log.timestamp.toLocaleTimeString()}
-                  </p>
+                  </span>
                 </div>
-                <p className="text-sm text-slate-600 mt-1">{log.details}</p>
-                <p className="text-xs text-slate-500 mt-1">by {log.actor}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{log.details}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="outline" className="text-[10px] py-0 h-4">
+                    执行者: {log.actor}
+                  </Badge>
+                </div>
               </div>
             </div>
           ))}
         </div>
+        <button className="w-full mt-6 py-2 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+          查看完整审计报告
+        </button>
       </div>
     </MainLayout>
   );
