@@ -50,7 +50,7 @@ export const ROLE_CAPABILITIES: Record<string, RoleCapabilities> = {
       { name: "Code Submission", description: "Submit code to VCS", endpoint: "/api/code/submit", methods: ["POST"] },
     ],
     mcpTools: [
-      { name: "GitHub Integration", server: "github", description: "Code repository management", tools: ["create_repository", "create_pull_request", "list_issues"] },
+      { name: "GitHub Integration", server: "github", description: "Code repository management", tools: ["create_repository", "create_pull_request", "list_issues", "search_code", "get_repository", "create_issue", "update_issue", "merge_pull_request"] },
       { name: "Vercel Deployment", server: "vercel", description: "Frontend deployment management", tools: ["create_deployment", "get_deployment"] },
     ],
     skills: [

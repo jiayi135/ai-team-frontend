@@ -15,7 +15,7 @@ export interface McpToolMetadata {
 
 export class McpDiscoveryEngine {
   private toolCatalog: Map<string, McpToolMetadata> = new Map();
-  private activeServers: string[] = ['vercel', 'cloudflare']; // Default servers
+  private activeServers: string[] = ['vercel', 'cloudflare', 'github']; // Added github
 
   /**
    * Automatically discover and index all tools from active MCP servers.
