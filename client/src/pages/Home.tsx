@@ -11,9 +11,33 @@ import {
 import MainLayout from '@/components/layout/MainLayout';
 import KPICard from '@/components/dashboard/KPICard';
 import MetricsChart from '@/components/dashboard/MetricsChart';
+import TaskComposer from '@/components/tasks/TaskComposer';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { useLocation } from 'wouter';
 
 export default function Home() {
+  const [, setLocation] = useLocation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const handleTaskSubmit = async (role: string, goal: string, useMemory: boolean) => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/execute/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, goal, context: useMemory ? 'with_memory' : 'no_memory' }),
+      });
+      
+      if (response.ok) {
+        setLocation('/tasks');
+      }
+    } catch (error) {
+      console.error('Failed to submit task:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const [metrics] = useState({
     activeTasks: 12,
     completedTasks: 847,
@@ -28,16 +52,9 @@ export default function Home() {
       title="仪表盘"
       subtitle="AI 团队治理系统实时监控 (P.R.O.M.P.T. 框架)"
     >
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 mb-8 text-white shadow-lg">
-        <div className="flex items-center gap-4 mb-4">
-          <ShieldCheck size={32} className="text-blue-200" />
-          <h2 className="text-2xl font-bold">AI 法点：元认知治理中心</h2>
-        </div>
-        <p className="text-blue-100 max-w-2xl leading-relaxed">
-          欢迎使用 AI 团队宪法治理框架。本系统通过元认知审计、自主协商与上下文继承机制，
-          确保多智能体协作的确定性、可扩展性与战略对齐。
-        </p>
+      {/* Task Composer Section */}
+      <div className="mb-12">
+        <TaskComposer onSubmit={handleTaskSubmit} isLoading={isSubmitting} />
       </div>
 
       {/* KPI Cards */}
