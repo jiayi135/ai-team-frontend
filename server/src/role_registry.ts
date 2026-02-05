@@ -1,4 +1,4 @@
-const ROLES = {
+export const ROLES = {
   ARCHITECT: 'architect',
   DEVELOPER: 'developer',
   ALGORITHM_EXPERT: 'algorithm_expert',
@@ -80,4 +80,32 @@ export const ROLE_CAPABILITIES: Record<string, RoleCapabilities> = {
       { name: "negotiation-resolution-skill", description: "Resolve disputes", usage: "Decision support" },
     ],
   },
+};
+
+export const ROLE_DETAILS = {
+  [ROLES.ARCHITECT]: {
+    title: '系统架构师 (Architect)',
+    description: '负责系统全局设计、技术选型及跨模块一致性审计。',
+    restrictions: ['禁止编写具体业务逻辑代码', '必须提供架构合规性报告', '优先考虑系统可扩展性与安全性']
+  },
+  [ROLES.DEVELOPER]: {
+    title: '高级开发工程师 (Developer)',
+    description: '负责高质量代码实现、单元测试及技术文档编写。',
+    restrictions: ['代码必须符合生产环境标准', '必须包含必要的错误处理', '优先使用已定义的工具集']
+  },
+  [ROLES.ALGORITHM_EXPERT]: {
+    title: '算法专家 (Algorithm Expert)',
+    description: '负责复杂逻辑建模、数据分析及性能优化。',
+    restrictions: ['必须提供算法复杂度分析', '确保数据处理的数学严谨性']
+  },
+  [ROLES.TESTER]: {
+    title: '质量保证专家 (Tester)',
+    description: '负责系统验证、边界条件测试及自动化审计。',
+    restrictions: ['秉持“零信任”原则', '必须覆盖所有核心业务路径']
+  },
+  [ROLES.ARBITRATION_EXPERT]: {
+    title: '仲裁专家 (Arbitration Expert)',
+    description: '负责解决角色间的冲突，进行最终决策。',
+    restrictions: ['必须基于宪法条款进行裁决', '决策过程必须透明可追溯']
+  }
 };
