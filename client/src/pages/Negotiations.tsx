@@ -1,114 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { getNegotiationStatusColor } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, ChevronRight, Search, GitBranch } from 'lucide-react';
+import { AlertCircle, ChevronRight, Search, GitBranch, RefreshCw, Loader2 } from 'lucide-react';
 import NegotiationDetail from '@/components/negotiation/NegotiationDetail';
+import { useSocket } from '@/hooks/useSocket';
+
+interface Conflict {
+  dimension: string;
+  severity: string;
+  description: string;
+}
+
+interface DebateEntry {
+  round: number;
+  agent: string;
+  argument: string;
+  evidence: string;
+  timestamp: string;
+}
+
+interface ScoreHistory {
+  round: number;
+  score: number;
+}
+
+interface ArbitrationDecision {
+  decision: string;
+  reasoning: string;
+  impact: string;
+  constitutionalClause?: string;
+}
 
 interface Negotiation {
   id: string;
   title: string;
+  description?: string;
   status: string;
   consensusScore: number;
   round: number;
   maxRounds: number;
-  conflicts: any[];
+  conflicts: Conflict[];
   participants: string[];
-  startTime: Date;
-  debateHistory: any[];
-  scoreHistory: { round: number; score: number }[];
+  startTime: string;
+  endTime?: string;
+  debateHistory: DebateEntry[];
+  scoreHistory: ScoreHistory[];
+  arbitrationDecision?: ArbitrationDecision;
 }
 
-const mockNegotiations: Negotiation[] = [
-  {
-    id: 'NEG-2026-001',
-    title: '技术栈选型 - 数据库层',
-    status: '协商中',
-    consensusScore: 0.72,
-    round: 2,
-    maxRounds: 5,
-    conflicts: [
-      { dimension: '技术栈 (Tech Stack)', severity: 'moderate', description: '开发者提议使用 NoSQL 以提高扩展性，但架构师坚持使用 PostgreSQL 以保证强一致性。' },
-      { dimension: '性能指标 (Performance Metrics)', severity: 'minor', description: '关于写入延迟的基准测试标准存在轻微分歧。' },
-    ],
-    participants: ['Architect', 'Developer', 'Algorithm Expert'],
-    startTime: new Date(Date.now() - 3600000),
-    scoreHistory: [
-      { round: 1, score: 0.45 },
-      { round: 2, score: 0.72 },
-    ],
-    debateHistory: [
-      {
-        round: 1,
-        agent: 'Architect',
-        argument: '基于宪法第 5 条强一致性要求，PostgreSQL 是唯一符合治理标准的选型。',
-        evidence: 'Constitution_Article_V_Section_2',
-        timestamp: '10:05:22'
-      },
-      {
-        round: 2,
-        agent: 'Developer',
-        argument: '虽然一致性重要，但当前业务负载预测显示单机 RDBMS 将在 6 个月内达到瓶颈。',
-        evidence: 'Load_Projection_Report_Q1',
-        timestamp: '10:12:45'
-      }
-    ]
-  },
-  {
-    id: 'NEG-2026-002',
-    title: 'API 设计模式规范',
-    status: '达成共识',
-    consensusScore: 0.95,
-    round: 3,
-    maxRounds: 5,
-    conflicts: [],
-    participants: ['Architect', 'Developer', 'Tester'],
-    startTime: new Date(Date.now() - 7200000),
-    scoreHistory: [
-      { round: 1, score: 0.60 },
-      { round: 2, score: 0.82 },
-      { round: 3, score: 0.95 },
-    ],
-    debateHistory: [
-      {
-        round: 3,
-        agent: 'Tester',
-        argument: '已验证 RESTful 规范符合自动化测试套件的接入标准。',
-        evidence: 'Test_Suite_Compatibility_Matrix',
-        timestamp: '09:15:00'
-      }
-    ]
-  },
-];
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Negotiations() {
-  const [selectedId, setSelectedId] = useState<string | null>(mockNegotiations[0].id);
+  const [negotiations, setNegotiations] = useState<Negotiation[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { socket, isConnected } = useSocket();
 
-  const selectedNegotiation = mockNegotiations.find(n => n.id === selectedId);
+  // 获取协商列表
+  const fetchNegotiations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetch(`${API_BASE}/api/negotiations`);
+      const result = await response.json();
+      
+      if (result.success && result.negotiations) {
+        setNegotiations(result.negotiations);
+        // 自动选择第一个
+        if (result.negotiations.length > 0 && !selectedId) {
+          setSelectedId(result.negotiations[0].id);
+        }
+      } else {
+        setError(result.error || '获取协商列表失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '网络请求失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 初始加载
+  useEffect(() => {
+    fetchNegotiations();
+  }, []);
+
+  // WebSocket 实时更新
+  useEffect(() => {
+    if (socket) {
+      socket.on('negotiation_updated', (updatedNegotiation: Negotiation) => {
+        setNegotiations(prev => {
+          const index = prev.findIndex(n => n.id === updatedNegotiation.id);
+          if (index !== -1) {
+            const newList = [...prev];
+            newList[index] = updatedNegotiation;
+            return newList;
+          } else {
+            return [updatedNegotiation, ...prev];
+          }
+        });
+      });
+
+      return () => {
+        socket.off('negotiation_updated');
+      };
+    }
+  }, [socket]);
+
+  // 过滤协商
+  const filteredNegotiations = negotiations.filter(n =>
+    n.title.toLowerCase().includes(search.toLowerCase()) ||
+    n.id.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedNegotiation = negotiations.find(n => n.id === selectedId);
 
   return (
     <MainLayout
       title="协商可视化"
-      subtitle="多智能体共识构建与冲突解决追踪 (自主协商引擎)"
+      subtitle={`多智能体共识构建与冲突解决追踪 (自主协商引擎) | WebSocket: ${isConnected ? '在线' : '离线'}`}
     >
       <div className="flex flex-col xl:flex-row gap-8">
         {/* Left: List */}
         <div className="xl:w-1/3 space-y-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              placeholder="搜索协商事件..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          {/* Search and Refresh */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="搜索协商事件..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={fetchNegotiations}
+              disabled={isLoading}
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              title="刷新列表"
+            >
+              <RefreshCw size={18} className={`text-slate-600 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && negotiations.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
+            </div>
+          )}
+
+          {/* Negotiation List */}
           <div className="space-y-3">
-            {mockNegotiations.map((n) => (
+            {filteredNegotiations.map((n) => (
               <div
                 key={n.id}
                 onClick={() => setSelectedId(n.id)}
@@ -127,7 +185,7 @@ export default function Negotiations() {
                     {n.id}
                   </Badge>
                   <span className="text-[10px] text-slate-400 font-medium">
-                    {n.round} 轮辩论
+                    {n.round} / {n.maxRounds} 轮
                   </span>
                 </div>
                 <h4 className="font-bold text-slate-900 mb-3 line-clamp-1">{n.title}</h4>
@@ -146,19 +204,39 @@ export default function Negotiations() {
                       </div>
                     ))}
                   </div>
-                  <ChevronRight size={16} className={selectedId === n.id ? 'text-blue-500' : 'text-slate-300'} />
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant="secondary" 
+                      className="text-[10px]"
+                      style={{ 
+                        backgroundColor: getNegotiationStatusColor(n.status) + '20',
+                        color: getNegotiationStatusColor(n.status)
+                      }}
+                    >
+                      {n.status}
+                    </Badge>
+                    <ChevronRight size={16} className={selectedId === n.id ? 'text-blue-500' : 'text-slate-300'} />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
+          {/* Empty State */}
+          {!isLoading && filteredNegotiations.length === 0 && (
+            <div className="text-center py-8 text-slate-500">
+              {search ? '未找到匹配的协商事件' : '暂无协商事件'}
+            </div>
+          )}
+
+          {/* Protocol Reminder */}
           <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
             <h5 className="text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
               <AlertCircle size={16} />
-              协商协议提醒
+              协商协议提醒 (Article III)
             </h5>
             <p className="text-xs text-purple-800 leading-relaxed">
-              系统当前运行于<strong>自主协商模式</strong>。单次协商事件硬性限制为 5 轮，超时阈值 300s。
+              系统当前运行于<strong>自主协商模式</strong>。单次协商事件硬性限制为 5 轮，超时阈值 300s，单次成本上限 $10.00 USD。
             </p>
           </div>
         </div>
@@ -168,7 +246,7 @@ export default function Negotiations() {
           {selectedNegotiation ? (
             <NegotiationDetail negotiation={selectedNegotiation} />
           ) : (
-            <div className="h-full flex flex-col items-center justify-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
+            <div className="h-full flex flex-col items-center justify-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center min-h-[400px]">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                 <GitBranch size={32} className="text-slate-300" />
               </div>
