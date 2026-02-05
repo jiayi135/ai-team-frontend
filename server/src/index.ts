@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { taskOrchestrator } from './task_orchestrator';
+import { initTaskOrchestrator, taskOrchestrator } from './task_orchestrator';
 import { createLogger } from './logger';
 import { negotiationEngine, ConflictDimension } from './negotiation_engine';
 import { healthMonitor } from './health_monitor';
@@ -17,6 +17,9 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: '*' }
 });
+
+// Initialize Task Orchestrator with Socket.io
+initTaskOrchestrator(io);
 
 app.use(cors());
 app.use(express.json());

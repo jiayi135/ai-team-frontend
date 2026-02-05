@@ -31,6 +31,14 @@ export interface Task {
   currentAttempt?: number;
 }
 
+// Singleton instance will be initialized in index.ts
+export let taskOrchestrator: TaskOrchestrator;
+
+export function initTaskOrchestrator(io: Server) {
+  taskOrchestrator = new TaskOrchestrator(io);
+  return taskOrchestrator;
+}
+
 export class TaskOrchestrator {
   private tasks: Map<string, Task> = new Map();
   private io: Server;
