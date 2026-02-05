@@ -1,71 +1,52 @@
+import sys
 import os
 import json
-from openai import OpenAI
-
-client = OpenAI()
+from llm_client import call_llm
 
 def diagnose_error(error_output: str, context: str) -> str:
     """
-    根据错误输出和上下文，使用 LLM 诊断错误并提供修复建议。
+    Diagnose execution errors and suggest fixes using NVIDIA hosted LLM.
     """
-    prompt = f"""
-    你是一个AI团队的Tester角色，你的任务是诊断一个AI生成的代码或shell命令执行失败的原因，并提供修复建议。
+    system_prompt = """You are the Tester in an AI Team. 
+Your task is to analyze execution failures and suggest concrete fixes based on the P.R.O.M.P.T. framework.
+Adopt a "zero-trust" mindset and look for evidence in the context.
 
-    以下是执行失败的错误输出：
-    ---
-    {error_output}
-    ---
+You must output a JSON object with the following fields:
+- diagnosis: A clear explanation of what went wrong.
+- isLogicError: Boolean, true if it's a logic flaw rather than a simple syntax/env error.
+- suggestedFix: A concrete suggestion or piece of code to fix the issue.
 
-    以下是任务的上下文信息：
-    ---
-    {context}
-    ---
+Output format: ONLY a JSON object."""
 
-    请分析错误输出和上下文，判断错误类型（语法错误、权限错误、逻辑错误或其他），并提供一个清晰的诊断和具体的修复建议。
-
-    请以 JSON 格式返回结果，例如：
-    {{
-      "isSyntaxError": true,
-      "isPermissionError": false,
-      "isLogicError": false,
-      "diagnosis": "这是一个语法错误，可能缺少分号或括号不匹配。",
-      "suggestedFix": "检查代码中的语法错误，特别是第 X 行的 Y 字符。"
-    }}
-
-    请确保 JSON 格式正确，不要包含任何额外的文字。
-    """
-
+    user_prompt = f"Error: {error_output}\nContext: {context}"
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    model = os.environ.get("LLM_MODEL", "z-ai/glm-4-9b-chat")
+    result = call_llm(messages, model=model)
+    
     try:
-        response = client.chat.completions.create(
-            model="gemini-2.5-flash",
-            messages=[
-                {"role": "system", "content": "你是一个能够根据指令生成可执行代码或 shell 命令的 AI 助手。"},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=500,
-            response_format={"type": "json_object"},
-        )
-        diagnosis_json = response.choices[0].message.content.strip()
-        return diagnosis_json
+        start = result.find('{')
+        end = result.rfind('}') + 1
+        if start != -1 and end != -1:
+            return result[start:end]
+        return result
     except Exception as e:
         return json.dumps({
-            "isSyntaxError": False,
-            "isPermissionError": False,
-            "isLogicError": True,
-            "diagnosis": f"无法从LLM获取诊断：{{e}}",
-            "suggestedFix": "请手动检查错误输出并尝试修复。"
+            "diagnosis": "Error during diagnosis",
+            "isLogicError": False,
+            "suggestedFix": "Check logs manually"
         })
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) < 3:
         print("Usage: python3 llm_error_diagnoser.py <error_output> <context>")
         sys.exit(1)
-
-    error_output_arg = sys.argv[1]
+        
+    error_arg = sys.argv[1]
     context_arg = sys.argv[2]
-
-    diagnosis_result = diagnose_error(error_output_arg, context_arg)
-    print(diagnosis_result)
+    
+    print(diagnose_error(error_arg, context_arg))
