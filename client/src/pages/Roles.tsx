@@ -54,7 +54,7 @@ export default function Roles() {
             restrictions={roleData.restrictions}
             color={roleData.color}
             icon={roleIcons[roleKey as keyof typeof roleIcons]}
-            isActive={roleKey === ROLES.ARCHITECT}
+            isActive={true}
             roleId={roleKey}
           />
         ))}

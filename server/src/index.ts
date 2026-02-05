@@ -40,6 +40,16 @@ app.get('/api/roles/capabilities', (req, res) => {
   res.json(ROLE_CAPABILITIES);
 });
 
+app.get('/api/roles/:roleName/capabilities', (req, res) => {
+  const roleName = req.params.roleName;
+  const capabilities = ROLE_CAPABILITIES[roleName as keyof typeof ROLE_CAPABILITIES];
+  if (capabilities) {
+    res.json(capabilities);
+  } else {
+    res.status(404).json({ error: 'Role capabilities not found' });
+  }
+});
+
 app.post('/api/execute/task', async (req, res) => {
   const { role, goal, context } = req.body;
   try {

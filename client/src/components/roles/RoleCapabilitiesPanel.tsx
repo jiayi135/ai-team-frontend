@@ -77,7 +77,7 @@ export default function RoleCapabilitiesPanel({ roleName }: RoleCapabilitiesPane
     const fetchCapabilities = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:3001/api/roles/${roleName}/capabilities`);
+        const response = await fetch(`/api/roles/${roleName}/capabilities`);
         if (!response.ok) {
           throw new Error('Failed to fetch capabilities');
         }
