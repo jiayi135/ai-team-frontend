@@ -81,19 +81,18 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
 }
 
 async function executeCommandOrMcpTool(command: string, role: string, context: string): Promise<ExecutionResult> {
-  // 1. Governance Hook (Pre-execution)
+  // 1. Pre-execution Constitutional Guardrail (The "Red Line")
   const validationResult = await validateAgainstConstitution(command, role, context);
   if (!validationResult.isValid) {
-    logger.warn('Constitutional validation failed', { command, reason: validationResult.reason });
+    logger.warn('Constitutional Guardrail INTERCEPTED command', { command, reason: validationResult.reason });
     return {
       success: false,
-      error: `Governance validation failed: ${validationResult.reason}`,
+      error: `INTERCEPTED: ${validationResult.reason}`,
       governanceValidation: validationResult,
     };
   }
 
   // 2. MCP Tool Execution Logic
-  // Matches: manus-mcp-cli tool call <tool> --server <server> --input '<json>'
   if (command.includes('manus-mcp-cli') && command.includes('call')) {
     try {
       const toolMatch = command.match(/call\s+([^\s]+)/);
@@ -105,15 +104,13 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
         const serverName = serverMatch[1];
         const inputJson = inputMatch[1];
 
-        // Permission check
         const roleCaps = ROLE_CAPABILITIES[role];
         const hasPermission = roleCaps?.mcpTools?.some(
           mcp => mcp.server === serverName && mcp.tools.includes(toolName)
         );
 
         if (!hasPermission) {
-          logger.error('Unauthorized MCP tool call', { role, tool: toolName, server: serverName });
-          return { success: false, error: `Role ${role} is not authorized to use tool ${toolName} on server ${serverName}.` };
+          return { success: false, error: `Role ${role} is not authorized for tool ${toolName} on server ${serverName}.` };
         }
 
         const mcpClient = new McpClient(serverName);
@@ -121,7 +118,6 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
         return { success: true, output: JSON.stringify(result, null, 2) };
       }
     } catch (error: any) {
-      logger.error('MCP command parsing/execution failed', { error: error.message });
       return { success: false, error: `MCP execution error: ${error.message}` };
     }
   }
@@ -163,15 +159,17 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return result;
     }
 
+    // Handle Governance Violations (No retries for constitutional breaches)
     if (result.governanceValidation && !result.governanceValidation.isValid) {
-      logger.warn('Governance violation detected. Escalating to arbitration.');
+      logger.warn('Pre-execution governance breach. Escalating to arbitration.');
       result.arbitrationDecision = await arbitrateConflict(
-        `Governance violation in attempt ${attempt}: ${result.governanceValidation.reason}`,
+        `Critical: Constitutional Guardrail intercepted a violation in attempt ${attempt}: ${result.governanceValidation.reason}`,
         instruction.context
       );
       return result;
     }
 
+    // Feedback Loop for standard execution errors
     if (attempt < MAX_ATTEMPTS) {
       logger.warn(`Attempt ${attempt} failed. Triggering diagnosis.`);
       const diagnosis = await diagnoseAndSuggestFix(result.error || "Unknown execution error", instruction.context);

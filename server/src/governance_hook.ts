@@ -1,44 +1,84 @@
+import { createLogger } from './logger';
+
+const logger = createLogger('GovernanceHook');
+
 export interface GovernanceValidationResult {
   isValid: boolean;
   reason?: string;
   constitutionalClause?: string;
 }
 
-/**
- * 模拟宪法约束验证函数。
- * 在实际应用中，这里会包含复杂的逻辑来检查代码或操作是否符合“AI法点”宪法。
- * 例如，检查是否超出成本预算、是否违反数据隐私规定、是否符合架构模式等。
- * @param codeOrAction 待验证的代码或操作描述。
- * @param role 执行该操作的角色。
- * @param context 额外的上下文信息，如预算、项目类型等。
- * @returns GovernanceValidationResult 验证结果。
- */
-export async function validateAgainstConstitution(codeOrAction: string, role: string, context: string): Promise<GovernanceValidationResult> {
-  console.log(`[GovernanceHook] Validating code/action against constitution for role ${role}: ${codeOrAction}`);
-
-  // 示例：模拟一个简单的宪法规则，例如不允许在非测试环境中执行某些高风险操作
-  if (codeOrAction.includes("rm -rf /") && !context.includes("test_environment")) {
-    return {
-      isValid: false,
-      reason: "检测到高风险操作，且不在测试环境中执行。",
-      constitutionalClause: "宪法第 5 条：安全操作与环境隔离原则",
-    };
+// Red-line rules based on the AI Team Constitution
+const RED_LINES = [
+  {
+    pattern: /rm\s+-rf\s+\//,
+    reason: "Attempted to delete root directory. Violation of system integrity.",
+    clause: "Article V: System Safety & Infrastructure Protection"
+  },
+  {
+    pattern: /rm\s+-rf\s+\.\/logs/,
+    reason: "Attempted to delete audit logs. Violation of transparency and zero-trust principles.",
+    clause: "Article I: Pillar 6 (Full Observability)"
+  },
+  {
+    pattern: /curl|wget|nc|socat/,
+    reason: "Unauthorized external network utility detected. Potential data exfiltration risk.",
+    clause: "Article IV: Data Security & Privacy"
+  },
+  {
+    pattern: /chmod\s+777/,
+    reason: "Attempted to set insecure file permissions. Violation of least privilege principle.",
+    clause: "Article V: Access Control"
+  },
+  {
+    pattern: /env|printenv|cat\s+\.env/,
+    reason: "Attempted to access sensitive environment variables or secrets directly.",
+    clause: "Article IV: Secret Management"
   }
+];
 
-  // 示例：模拟一个成本预算检查
-  if (codeOrAction.includes("deploy to vercel") && context.includes("high_cost_project")) {
-    // 假设有一个机制可以检查当前预算
-    const currentBudget = 100; // 模拟当前预算
-    const deploymentCost = 500; // 模拟部署成本
-    if (deploymentCost > currentBudget) {
+/**
+ * Validates any generated command or action against the AI Team Constitution.
+ * This is a pre-execution synchronous/asynchronous guardrail.
+ */
+export async function validateAgainstConstitution(
+  codeOrAction: string, 
+  role: string, 
+  context: string
+): Promise<GovernanceValidationResult> {
+  logger.info('Performing constitutional scan', { role, commandLength: codeOrAction.length });
+
+  // 1. Static Red-Line Scanning (Regex based)
+  for (const rule of RED_LINES) {
+    if (rule.pattern.test(codeOrAction)) {
+      logger.warn('Red-line violation detected', { rule: rule.reason });
       return {
         isValid: false,
-        reason: `部署成本 (${deploymentCost}$) 超出当前预算 (${currentBudget}$)。`,
-        constitutionalClause: "宪法第 3 条：成本控制与预算管理原则",
+        reason: rule.reason,
+        constitutionalClause: rule.clause
       };
     }
   }
 
-  // 默认通过验证
+  // 2. Role-Based Boundary Check
+  // Example: Only Architect can modify configuration files
+  if (codeOrAction.includes('config') && role !== 'architect') {
+    return {
+      isValid: false,
+      reason: `Role '${role}' is not authorized to modify system configuration files.`,
+      constitutionalClause: "Article II: Role Boundaries & Metadata Constraints"
+    };
+  }
+
+  // 3. Resource & Quota Check (Heuristic)
+  if (codeOrAction.includes('deploy') && context.includes('budget_exceeded')) {
+    return {
+      isValid: false,
+      reason: "Operation aborted: Global project budget exceeded.",
+      constitutionalClause: "Article III: Economic Safeguards & Quota Management"
+    };
+  }
+
+  logger.debug('Constitutional scan passed');
   return { isValid: true };
 }

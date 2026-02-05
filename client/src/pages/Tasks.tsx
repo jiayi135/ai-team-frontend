@@ -4,7 +4,7 @@ import { TASK_STATUS, ROLES } from '@/lib/constants';
 import { getTaskStatusColor, formatTime, formatDuration } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug, Rocket, Scale, Loader2 } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, Search, Filter, Play, Terminal, Bug, Rocket, Scale, Loader2, ShieldAlert } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
 
 interface Task {
@@ -16,6 +16,7 @@ interface Task {
   updatedAt: string;
   assignedRole: string;
   context: string;
+  currentAttempt?: number;
 }
 
 interface ExecutionResult {
@@ -25,6 +26,7 @@ interface ExecutionResult {
   diagnosis?: ErrorDiagnosis;
   arbitrationDecision?: ArbitrationDecision;
   governanceValidation?: GovernanceValidationResult;
+  attempt?: number;
 }
 
 interface ErrorDiagnosis {
@@ -55,8 +57,10 @@ const getStatusIcon = (status: string) => {
     case 'executing':
     case 'planning':
     case 'testing':
-    case 'arbitrating':
+    case 'repairing':
       return <Loader2 className="text-blue-600 animate-spin" size={20} />;
+    case 'arbitrating':
+      return <Scale className="text-purple-600 animate-pulse" size={20} />;
     case 'failed':
       return <XCircle className="text-red-600" size={20} />;
     case 'pending':
@@ -98,9 +102,6 @@ export default function Tasks() {
   useEffect(() => {
     if (socket) {
       socket.on('task_updated', (updatedTask: Task) => {
-        console.log('Task updated via socket:', updatedTask);
-        
-        // Update the task in the list
         setAllTasks(prevTasks => {
           const index = prevTasks.findIndex(t => t.id === updatedTask.id);
           if (index !== -1) {
@@ -112,25 +113,31 @@ export default function Tasks() {
           }
         });
 
-        // If this is the current active task, update the console output
         if (currentTask && updatedTask.id === currentTask.id) {
           setCurrentTask(updatedTask);
           const latestResult = updatedTask.history[updatedTask.history.length - 1];
           if (latestResult) {
             let output = latestResult.output || latestResult.error || '';
+            
+            // Highlight Constitutional Interceptions
             if (latestResult.governanceValidation && !latestResult.governanceValidation.isValid) {
-              output += `\n[治理验证失败]: ${latestResult.governanceValidation.reason}`;
+              output = `⚠️ CONSTITUTIONAL BREACH DETECTED ⚠️\n` +
+                       `------------------------------------\n` +
+                       `Reason: ${latestResult.governanceValidation.reason}\n` +
+                       `Clause: ${latestResult.governanceValidation.constitutionalClause}\n` +
+                       `Status: Operation Intercepted\n` +
+                       `------------------------------------`;
+            } else if (latestResult.diagnosis) {
+              output += `\n\n[Tester Diagnosis]: ${latestResult.diagnosis.diagnosis}\n[Suggested Fix]: ${latestResult.diagnosis.suggestedFix}`;
             }
-            if (latestResult.diagnosis) {
-              output += `\n[Tester 诊断]: ${latestResult.diagnosis.diagnosis}\n[修复建议]: ${latestResult.diagnosis.suggestedFix}`;
-            }
+            
             if (latestResult.arbitrationDecision) {
-              output += `\n[仲裁专家决策]: ${latestResult.arbitrationDecision.decision}`;
+              output += `\n\n[Arbitration Decision]: ${latestResult.arbitrationDecision.decision}\n[Reasoning]: ${latestResult.arbitrationDecision.reasoning}`;
             }
             setExecutionOutput(output);
           }
           
-          if (['completed', 'failed'].includes(updatedTask.currentStatus)) {
+          if (['completed', 'failed', 'arbitrating'].includes(updatedTask.currentStatus)) {
             setIsExecuting(false);
           }
         }
@@ -150,7 +157,7 @@ export default function Tasks() {
 
   const handleExecuteTask = async () => {
     setIsExecuting(true);
-    setExecutionOutput('正在初始化任务...\n');
+    setExecutionOutput('Initializing P.R.O.M.P.T. Task...\n');
     
     try {
       const response = await fetch('http://localhost:3001/api/execute/task', {
@@ -159,44 +166,44 @@ export default function Tasks() {
         body: JSON.stringify({
           role: executionRole,
           goal: executionGoal,
-          context: "Project context: React/Vite/Tailwind frontend."
+          context: "Active P.R.O.M.P.T. Session."
         }),
       });
 
       const result = await response.json();
       if (result.success && result.taskId) {
-        setExecutionOutput(prev => prev + `任务已启动，ID: ${result.taskId}\n`);
+        setExecutionOutput(prev => prev + `Task started. ID: ${result.taskId}\nScanning for constitutional compliance...\n`);
         setCurrentTask({ id: result.taskId } as Task);
       } else {
-        setExecutionOutput(prev => prev + `任务启动失败: ${result.error}`);
+        setExecutionOutput(prev => prev + `Failed to start task: ${result.error}`);
         setIsExecuting(false);
       }
     } catch (error: any) {
-      setExecutionOutput(prev => prev + `请求失败: ${error.message}`);
+      setExecutionOutput(prev => prev + `Request failed: ${error.message}`);
       setIsExecuting(false);
     }
   };
 
   return (
-    <MainLayout title="任务监控" subtitle={`实时追踪 P.R.O.M.P.T. 任务执行 | WebSocket: ${isConnected ? '已连接' : '未连接'}`}>
+    <MainLayout title="Task Monitoring" subtitle={`P.R.O.M.P.T. Governance Live | WebSocket: ${isConnected ? 'Online' : 'Offline'}`}>
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-8">
         <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Terminal size={24} className="text-blue-600" />
-          自主执行控制台
+          Autonomous Execution Console
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <select
-            className="p-2 border rounded-lg"
+            className="p-2 border rounded-lg bg-slate-50"
             value={executionRole}
             onChange={(e) => setExecutionRole(e.target.value)}
             disabled={isExecuting}
           >
-            {Object.values(ROLES).map(role => <option key={role} value={role}>{role}</option>)}
+            {Object.values(ROLES).map(role => <option key={role} value={role}>{role.toUpperCase()}</option>)}
           </select>
           <input
             type="text"
-            placeholder="输入任务目标..."
-            className="md:col-span-2 p-2 border rounded-lg"
+            placeholder="Describe your goal (e.g., 'Deploy app to Vercel')..."
+            className="md:col-span-2 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
             value={executionGoal}
             onChange={(e) => setExecutionGoal(e.target.value)}
             disabled={isExecuting}
@@ -205,29 +212,37 @@ export default function Tasks() {
         <button
           onClick={handleExecuteTask}
           disabled={isExecuting || !executionGoal}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50"
         >
           {isExecuting ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
-          开始执行
+          {isExecuting ? 'Processing...' : 'Run Task'}
         </button>
-        <div className="mt-4 bg-slate-900 rounded-lg p-4 font-mono text-sm text-blue-400">
-          <pre ref={outputRef} className="max-h-60 overflow-y-auto whitespace-pre-wrap">
-            {executionOutput || '等待任务启动...'}
+        <div className="mt-4 bg-slate-900 rounded-lg p-4 font-mono text-sm border-l-4 border-blue-500 shadow-inner">
+          <pre ref={outputRef} className="max-h-64 overflow-y-auto whitespace-pre-wrap text-blue-300">
+            {executionOutput || 'Ready for input...'}
           </pre>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
+          <ShieldAlert size={20} className="text-slate-500" />
+          Governance Audit Trail
+        </h3>
         {allTasks.map(task => (
-          <div key={task.id} className="bg-white border rounded-lg p-4 flex items-center justify-between">
+          <div key={task.id} className="bg-white border rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4">
               {getStatusIcon(task.currentStatus)}
               <div>
-                <div className="font-bold">{task.goal}</div>
-                <div className="text-sm text-slate-500">{task.assignedRole} | {task.id}</div>
+                <div className="font-bold text-slate-800">{task.goal}</div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider">
+                  {task.assignedRole} • Attempt: {task.currentAttempt || 1} • {task.id}
+                </div>
               </div>
             </div>
-            <Badge className={getTaskStatusColor(task.currentStatus)}>{task.currentStatus}</Badge>
+            <Badge className={`${getTaskStatusColor(task.currentStatus)} px-3 py-1`}>
+              {task.currentStatus.toUpperCase()}
+            </Badge>
           </div>
         ))}
       </div>
