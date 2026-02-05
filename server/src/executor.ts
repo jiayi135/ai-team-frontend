@@ -17,6 +17,7 @@ export interface ExecutionResult {
   diagnosis?: ErrorDiagnosis;
   arbitrationDecision?: ArbitrationDecision;
   governanceValidation?: GovernanceValidationResult;
+  attempt?: number;
 }
 
 export interface TaskInstruction {
@@ -24,17 +25,30 @@ export interface TaskInstruction {
   goal: string;
   context: string;
   attempt?: number;
+  previousError?: string;
+  suggestedFix?: string;
 }
 
 async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string> {
-  logger.info('Requesting code generation', { role: instruction.role, goal: instruction.goal });
+  logger.info('Requesting code generation', { 
+    role: instruction.role, 
+    goal: instruction.goal,
+    attempt: instruction.attempt || 1 
+  });
+  
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', [
+    // Pass attempt and feedback if available
+    const args = [
       './src/llm_code_generator.py',
       instruction.role,
       instruction.goal,
       instruction.context,
-    ], {
+      (instruction.attempt || 1).toString(),
+      instruction.previousError || '',
+      instruction.suggestedFix || ''
+    ];
+
+    const pythonProcess = spawn('python3', args, {
       cwd: '/home/ubuntu/ai-team-frontend/server',
     });
 
@@ -54,8 +68,9 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
         logger.error('Python code generator failed', { code, error: errorOutput });
         reject(new Error(`Failed to generate code: ${errorOutput}`));
       } else {
-        logger.debug('Generated code', { output: output.trim() });
-        resolve(output.trim());
+        const result = output.trim();
+        logger.debug('Generated code', { length: result.length });
+        resolve(result);
       }
     });
 
@@ -67,8 +82,7 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
 }
 
 async function executeCommandOrMcpTool(command: string, role: string, context: string): Promise<ExecutionResult> {
-  const roleCapabilities = ROLE_CAPABILITIES[role];
-
+  // 1. Governance Hook (Pre-execution)
   const validationResult = await validateAgainstConstitution(command, role, context);
   if (!validationResult.isValid) {
     logger.warn('Constitutional validation failed', { command, reason: validationResult.reason });
@@ -79,6 +93,7 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     };
   }
 
+  // 2. MCP Tool Check
   if (command.startsWith('manus-mcp-cli')) {
     const parts = command.split(' ');
     const toolCallIndex = parts.indexOf('call');
@@ -90,8 +105,9 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
       const serverName = parts[serverIndex + 1];
       const inputJson = parts.slice(inputIndex + 1).join(' ').replace(/^'|'$/g, '');
 
+      const roleCapabilities = ROLE_CAPABILITIES[role];
       if (!roleCapabilities.mcpTools || !roleCapabilities.mcpTools.some(mcpTool => mcpTool.server === serverName && mcpTool.tools.includes(toolName))) {
-        return { success: false, error: `Role ${role} does not have permission to call MCP tool ${toolName} on server ${serverName}.` };
+        return { success: false, error: `Role ${role} lacks permission for MCP tool ${toolName} on ${serverName}.` };
       }
 
       try {
@@ -104,13 +120,11 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     }
   }
 
+  // 3. Shell Execution
   try {
     logger.info('Executing shell command', { command });
     const { stdout, stderr } = await execAsync(command);
-    if (stderr) {
-      logger.warn('Command stderr', { stderr });
-    }
-    logger.debug('Command stdout', { stdout });
+    if (stderr) logger.warn('Command stderr', { stderr });
     return { success: true, output: stdout };
   } catch (error: any) {
     logger.error('Command execution failed', { error: error.message });
@@ -119,60 +133,68 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
 }
 
 export async function executeTask(instruction: TaskInstruction): Promise<ExecutionResult> {
-  const roleCapabilities = ROLE_CAPABILITIES[instruction.role];
-
-  if (!roleCapabilities) {
-    return { success: false, error: `Role ${instruction.role} not found.` };
-  }
-
-  let currentInstruction = { ...instruction };
-  let executionAttempts = 0;
   const MAX_ATTEMPTS = 3;
+  let currentInstruction = { ...instruction };
+  let lastResult: ExecutionResult = { success: false };
 
-  while (executionAttempts < MAX_ATTEMPTS) {
-    executionAttempts++;
-    logger.info('Task attempt', { attempt: executionAttempts, goal: currentInstruction.goal });
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    currentInstruction.attempt = attempt;
+    logger.info(`Starting attempt ${attempt}/${MAX_ATTEMPTS}`, { goal: instruction.goal });
 
+    // Step A: Generate Code
     let generatedCommand: string;
     try {
       generatedCommand = await generateCodeWithLLM(currentInstruction);
     } catch (llmError: any) {
-      return { success: false, error: `LLM code generation failed: ${llmError.message}` };
+      return { success: false, error: `LLM generation failed: ${llmError.message}`, attempt };
     }
 
-    if (!generatedCommand) {
-      return { success: false, error: "LLM failed to generate a command." };
+    // Step B: Execute
+    const result = await executeCommandOrMcpTool(generatedCommand, instruction.role, instruction.context);
+    result.attempt = attempt;
+    lastResult = result;
+
+    if (result.success) {
+      logger.info(`Task succeeded on attempt ${attempt}`);
+      return result;
     }
 
-    const executionResult = await executeCommandOrMcpTool(generatedCommand, instruction.role, currentInstruction.context);
+    // Step C: Handle Failures
+    // C1: Governance Failure (No retry, go to arbitration)
+    if (result.governanceValidation && !result.governanceValidation.isValid) {
+      logger.warn('Governance violation detected. Escalating to arbitration.');
+      result.arbitrationDecision = await arbitrateConflict(
+        `Governance violation in attempt ${attempt}: ${result.governanceValidation.reason}`,
+        instruction.context
+      );
+      return result;
+    }
 
-    if (executionResult.success) {
-      return executionResult;
+    // C2: Execution Failure - Trigger Feedback Loop
+    if (attempt < MAX_ATTEMPTS) {
+      logger.warn(`Attempt ${attempt} failed. Triggering diagnosis for feedback loop.`);
+      const diagnosis = await diagnoseAndSuggestFix(result.error || "Unknown execution error", instruction.context);
+      result.diagnosis = diagnosis;
+      
+      // Update instruction for the next iteration
+      currentInstruction.previousError = result.error;
+      currentInstruction.suggestedFix = diagnosis.suggestedFix;
+      
+      logger.info('Feedback prepared for next attempt', { 
+        isLogicError: diagnosis.isLogicError,
+        hasFix: !!diagnosis.suggestedFix 
+      });
     } else {
-      if (executionResult.governanceValidation && !executionResult.governanceValidation.isValid) {
-        logger.warn('Governance failure, escalating to arbitration');
-        const conflictDescription = `Task [${instruction.goal}] aborted due to governance failure: ${executionResult.governanceValidation.reason}`;
-        const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
-        executionResult.arbitrationDecision = arbitrationDecision;
-        return executionResult;
-      }
-
-      logger.warn('Execution failed, triggering diagnosis');
-      const diagnosis = await diagnoseAndSuggestFix(executionResult.error || "Unknown error", currentInstruction.context);
-      executionResult.diagnosis = diagnosis;
-
-      if (executionAttempts >= MAX_ATTEMPTS || (diagnosis.isLogicError && !diagnosis.suggestedFix)) {
-        logger.warn('Max attempts reached or unresolvable error, escalating');
-        const conflictDescription = `Task [${instruction.goal}] failed after ${executionAttempts} attempts. Last error: ${executionResult.error}. Diagnosis: ${diagnosis.diagnosis}`;
-        const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
-        executionResult.arbitrationDecision = arbitrationDecision;
-        return executionResult;
-      }
-
-      currentInstruction.context = `Goal: ${instruction.goal}\nError: ${executionResult.error}\nDiagnosis: ${diagnosis.diagnosis}\nFix: ${diagnosis.suggestedFix}`;
-      currentInstruction.attempt = executionAttempts;
+      // C3: Final Failure - Arbitration
+      logger.error(`Task failed after ${MAX_ATTEMPTS} attempts.`);
+      const diagnosis = await diagnoseAndSuggestFix(result.error || "Max attempts reached", instruction.context);
+      result.diagnosis = diagnosis;
+      result.arbitrationDecision = await arbitrateConflict(
+        `Task failed all ${MAX_ATTEMPTS} attempts. Last error: ${result.error}`,
+        instruction.context
+      );
     }
   }
 
-  return { success: false, error: "Max attempts reached." };
+  return lastResult;
 }
