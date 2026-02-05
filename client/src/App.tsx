@@ -11,6 +11,7 @@ import Tasks from "./pages/Tasks";
 import Costs from "./pages/Costs";
 import Health from "./pages/Health";
 import Search from "./pages/Search";
+import Settings from "./pages/Settings";
 
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path={"/costs"} component={Costs} />
       <Route path={"/health"} component={Health} />
       <Route path={"/search"} component={Search} />
+      <Route path={"/settings"} component={Settings} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

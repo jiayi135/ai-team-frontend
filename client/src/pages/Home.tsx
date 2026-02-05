@@ -14,6 +14,7 @@ import MetricsChart from '@/components/dashboard/MetricsChart';
 import TaskComposer from '@/components/tasks/TaskComposer';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useLocation } from 'wouter';
+import { toast } from 'sonner';
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -22,17 +23,50 @@ export default function Home() {
   const handleTaskSubmit = async (role: string, goal: string, useMemory: boolean) => {
     try {
       setIsSubmitting(true);
+      
+      // 从本地存储获取 LLM 配置
+      const savedConfig = localStorage.getItem('ai_team_llm_config');
+      const config = savedConfig ? JSON.parse(savedConfig) : null;
+
+      if (!config || !config.apiKey) {
+        toast.error('未检测到 API 配置', {
+          description: '请先前往“系统设置”配置您的模型 API Key。',
+          action: {
+            label: '去设置',
+            onClick: () => setLocation('/settings')
+          }
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const response = await fetch('/api/execute/task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, goal, context: useMemory ? 'with_memory' : 'no_memory' }),
+        body: JSON.stringify({ 
+          role, 
+          goal, 
+          context: useMemory ? 'with_memory' : 'no_memory',
+          config: config // 传递配置到后端
+        }),
       });
       
       if (response.ok) {
+        toast.success('任务已启动', {
+          description: 'AI 团队已开始处理您的请求。'
+        });
         setLocation('/tasks');
+      } else {
+        const errorData = await response.json();
+        toast.error('任务启动失败', {
+          description: errorData.error || '未知错误'
+        });
       }
     } catch (error) {
       console.error('Failed to submit task:', error);
+      toast.error('网络错误', {
+        description: '无法连接到治理后端。'
+      });
     } finally {
       setIsSubmitting(false);
     }
