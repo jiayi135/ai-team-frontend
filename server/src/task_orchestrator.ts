@@ -1,3 +1,4 @@
+import { Server } from 'socket.io';
 import { executeTask, TaskInstruction } from './executor';
 import { ExecutionResult } from './executor';
 import { saveTask, getAllTasks } from './database';
@@ -29,8 +30,10 @@ export interface Task {
 
 export class TaskOrchestrator {
   private tasks: Map<string, Task> = new Map();
+  private io: Server;
 
-  constructor() {
+  constructor(io: Server) {
+    this.io = io;
     this.loadAllTasksFromDb();
   }
 
@@ -38,6 +41,11 @@ export class TaskOrchestrator {
     const storedTasks = await getAllTasks();
     storedTasks.forEach(task => this.tasks.set(task.id, task));
     logger.info(`Loaded ${storedTasks.length} tasks from database.`);
+  }
+
+  private notifyTaskUpdate(task: Task) {
+    this.io.emit('task_updated', task);
+    logger.debug('Emitted task_updated', { taskId: task.id, status: task.currentStatus });
   }
 
   public async createTask(goal: string, assignedRole: string, context: string): Promise<Task> {
@@ -54,6 +62,7 @@ export class TaskOrchestrator {
     };
     this.tasks.set(taskId, newTask);
     await saveTask(newTask);
+    this.notifyTaskUpdate(newTask);
     this.processTask(taskId);
     return newTask;
   }
@@ -74,9 +83,9 @@ export class TaskOrchestrator {
       task.currentStatus = TaskStatus.PLANNING;
       task.updatedAt = new Date();
       await saveTask(task);
+      this.notifyTaskUpdate(task);
       logger.info(`Task ${taskId}: Planning`, { goal: task.goal });
 
-      // Save checkpoint at phase completion
       checkpointManager.saveCheckpoint({
         taskId,
         phase: 'planning',
@@ -87,6 +96,7 @@ export class TaskOrchestrator {
       task.currentStatus = TaskStatus.EXECUTING;
       task.updatedAt = new Date();
       await saveTask(task);
+      this.notifyTaskUpdate(task);
       logger.info(`Task ${taskId}: Executing`);
 
       const instruction: TaskInstruction = {
@@ -119,8 +129,8 @@ export class TaskOrchestrator {
     task.updatedAt = new Date();
     await saveTask(task);
     this.tasks.set(taskId, task);
+    this.notifyTaskUpdate(task);
     
-    // Final checkpoint
     checkpointManager.saveCheckpoint({
       taskId,
       phase: 'final',

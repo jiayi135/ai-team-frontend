@@ -1,35 +1,55 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { ROLE_CAPABILITIES } from './role_registry';
-import { TaskOrchestrator, TaskStatus } from './task_orchestrator';
+import { TaskOrchestrator } from './task_orchestrator';
 import { initializeDatabase } from './database';
+import { createLogger } from './logger';
 
+const logger = createLogger('Server');
 const app = express();
-const port = 3001; // 后端服务端口
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow all origins for dev
+    methods: ["GET", "POST"]
+  }
+});
+
+const port = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-const taskOrchestrator = new TaskOrchestrator();
+// Initialize TaskOrchestrator with socket.io instance
+const taskOrchestrator = new TaskOrchestrator(io);
 
-// 初始化数据库
+// Initialize database
 initializeDatabase().then(() => {
-  console.log('Database initialized successfully.');
+  logger.info('Database initialized successfully.');
 }).catch(err => {
-  console.error('Failed to initialize database:', err);
-  process.exit(1); // 数据库初始化失败，退出应用
+  logger.error('Failed to initialize database:', err);
+  process.exit(1);
 });
 
-// 获取所有角色能力
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  logger.info('A user connected', { socketId: socket.id });
+  
+  socket.on('disconnect', () => {
+    logger.info('User disconnected', { socketId: socket.id });
+  });
+});
+
+// API Routes
 app.get('/api/roles/capabilities', (req, res) => {
   res.json(ROLE_CAPABILITIES);
 });
 
-// 获取特定角色能力
 app.get('/api/roles/:roleName/capabilities', (req, res) => {
   const { roleName } = req.params;
   const capabilities = ROLE_CAPABILITIES[roleName];
-
   if (capabilities) {
     res.json(capabilities);
   } else {
@@ -37,7 +57,6 @@ app.get('/api/roles/:roleName/capabilities', (req, res) => {
   }
 });
 
-// 任务执行 API
 app.post('/api/execute/task', async (req, res) => {
   const { role, goal, context } = req.body;
   if (!role || !goal || !context) {
@@ -67,6 +86,6 @@ app.get('/api/tasks', (req, res) => {
   res.json({ success: true, tasks });
 });
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+httpServer.listen(port, () => {
+  logger.info(`Server running on http://localhost:${port}`);
 });
