@@ -10,6 +10,7 @@ import { createLogger } from './logger';
 import { negotiationEngine, ConflictDimension } from './negotiation_engine';
 import { healthMonitor } from './health_monitor';
 import { costTracker } from './cost_tracker';
+import { webSearchService } from './web_search';
 
 const logger = createLogger('Server');
 const app = express();
@@ -317,6 +318,48 @@ app.get('/api/health/audit-logs', (req, res) => {
 });
 
 // ============================================
+// Web Search API Routes (互联网搜索功能)
+// ============================================
+app.get('/api/search', async (req, res) => {
+  try {
+    const query = req.query.q as string;
+    const maxResults = parseInt(req.query.limit as string) || 10;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Query parameter "q" is required' });
+    }
+    
+    const searchResponse = await webSearchService.search(query, maxResults);
+    
+    // 记录搜索历史
+    webSearchService.recordSearch(query, searchResponse.results.length);
+    
+    // 记录审计日志
+    healthMonitor.logAudit(
+      '互联网搜索',
+      'System',
+      searchResponse.success ? 'success' : 'warning',
+      `搜索查询: "${query}" - 返回 ${searchResponse.results.length} 条结果`,
+      'Article V: 知识获取'
+    );
+    
+    res.json(searchResponse);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/search/history', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const history = webSearchService.getSearchHistory(limit);
+    res.json({ success: true, history });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
 // Production Static Files
 // ============================================
 if (isProduction) {
@@ -357,6 +400,7 @@ httpServer.listen(port, () => {
     tasks: '/api/tasks, /api/execute/task',
     negotiations: '/api/negotiations/*',
     costs: '/api/costs/*',
-    health: '/api/health/*'
+    health: '/api/health/*',
+    search: '/api/search'
   });
 });

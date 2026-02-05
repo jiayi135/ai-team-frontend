@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const navItems = [
   { label: '任务监控', href: '/tasks', icon: Activity },
   { label: '成本管理', href: '/costs', icon: DollarSign },
   { label: '系统健康', href: '/health', icon: BarChart3 },
+  { label: '互联网搜索', href: '/search', icon: Globe },
 ];
 
 export default function Sidebar() {

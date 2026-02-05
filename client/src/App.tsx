@@ -10,6 +10,7 @@ import Negotiations from "./pages/Negotiations";
 import Tasks from "./pages/Tasks";
 import Costs from "./pages/Costs";
 import Health from "./pages/Health";
+import Search from "./pages/Search";
 
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
       <Route path={"/tasks"} component={Tasks} />
       <Route path={"/costs"} component={Costs} />
       <Route path={"/health"} component={Health} />
+      <Route path={"/search"} component={Search} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
