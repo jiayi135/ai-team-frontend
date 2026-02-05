@@ -4,9 +4,11 @@ import { McpClient } from './mcp_client';
 import { ROLE_CAPABILITIES } from './role_registry';
 import { diagnoseAndSuggestFix, ErrorDiagnosis } from './tester_engine';
 import { arbitrateConflict, ArbitrationDecision } from './arbitrator';
-import { validateAgainstConstitution, GovernanceValidationResult } from './governance_hook'; // 导入治理钩子
+import { validateAgainstConstitution, GovernanceValidationResult } from './governance_hook';
+import { createLogger } from './logger';
 
 const execAsync = promisify(exec);
+const logger = createLogger('Executor');
 
 export interface ExecutionResult {
   success: boolean;
@@ -14,7 +16,7 @@ export interface ExecutionResult {
   error?: string;
   diagnosis?: ErrorDiagnosis;
   arbitrationDecision?: ArbitrationDecision;
-  governanceValidation?: GovernanceValidationResult; // 添加治理验证结果
+  governanceValidation?: GovernanceValidationResult;
 }
 
 export interface TaskInstruction {
@@ -24,9 +26,8 @@ export interface TaskInstruction {
   attempt?: number;
 }
 
-// 调用 Python 脚本生成代码
 async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string> {
-  console.log(`[LLM] Requesting code generation for role: ${instruction.role}, goal: ${instruction.goal}`);
+  logger.info('Requesting code generation', { role: instruction.role, goal: instruction.goal });
   return new Promise((resolve, reject) => {
     const pythonProcess = spawn('python3', [
       './src/llm_code_generator.py',
@@ -34,7 +35,7 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
       instruction.goal,
       instruction.context,
     ], {
-      cwd: '/home/ubuntu/repo-ai-team-frontend/server',
+      cwd: '/home/ubuntu/ai-team-frontend/server',
     });
 
     let output = '';
@@ -50,29 +51,27 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
 
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
-        console.error(`[LLM] Python script exited with code ${code}: ${errorOutput}`);
+        logger.error('Python code generator failed', { code, error: errorOutput });
         reject(new Error(`Failed to generate code: ${errorOutput}`));
       } else {
-        console.log(`[LLM] Generated code: ${output.trim()}`);
+        logger.debug('Generated code', { output: output.trim() });
         resolve(output.trim());
       }
     });
 
     pythonProcess.on('error', (err) => {
-      console.error(`[LLM] Failed to start Python subprocess: ${err.message}`);
+      logger.error('Failed to start Python code generator', { error: err.message });
       reject(err);
     });
   });
 }
 
-// 执行 Shell 命令或 MCP 工具调用
 async function executeCommandOrMcpTool(command: string, role: string, context: string): Promise<ExecutionResult> {
   const roleCapabilities = ROLE_CAPABILITIES[role];
 
-  // 1. 宪法约束验证
   const validationResult = await validateAgainstConstitution(command, role, context);
   if (!validationResult.isValid) {
-    console.warn(`[GovernanceHook] Command failed constitutional validation: ${validationResult.reason}`);
+    logger.warn('Constitutional validation failed', { command, reason: validationResult.reason });
     return {
       success: false,
       error: `Governance validation failed: ${validationResult.reason}`,
@@ -80,7 +79,6 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     };
   }
 
-  // 检查是否是 MCP 工具调用
   if (command.startsWith('manus-mcp-cli')) {
     const parts = command.split(' ');
     const toolCallIndex = parts.indexOf('call');
@@ -90,9 +88,8 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     if (toolCallIndex !== -1 && serverIndex !== -1 && inputIndex !== -1) {
       const toolName = parts[toolCallIndex + 1];
       const serverName = parts[serverIndex + 1];
-      const inputJson = parts.slice(inputIndex + 1).join(' ').replace(/^'|'$/g, ''); // 移除单引号
+      const inputJson = parts.slice(inputIndex + 1).join(' ').replace(/^'|'$/g, '');
 
-      // 验证角色是否有权限调用此 MCP 工具
       if (!roleCapabilities.mcpTools || !roleCapabilities.mcpTools.some(mcpTool => mcpTool.server === serverName && mcpTool.tools.includes(toolName))) {
         return { success: false, error: `Role ${role} does not have permission to call MCP tool ${toolName} on server ${serverName}.` };
       }
@@ -107,27 +104,25 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     }
   }
 
-  // 否则，执行普通的 Shell 命令
   try {
-    console.log(`[Executor] Executing shell command: ${command}`);
+    logger.info('Executing shell command', { command });
     const { stdout, stderr } = await execAsync(command);
     if (stderr) {
-      console.warn(`[Executor] Stderr (may contain warnings): ${stderr}`);
+      logger.warn('Command stderr', { stderr });
     }
-    console.log(`[Executor] Stdout: ${stdout}`);
+    logger.debug('Command stdout', { stdout });
     return { success: true, output: stdout };
   } catch (error: any) {
-    console.error(`[Executor] Execution failed: ${error.message}`);
+    logger.error('Command execution failed', { error: error.message });
     return { success: false, error: error.message };
   }
 }
 
-// 主执行函数
 export async function executeTask(instruction: TaskInstruction): Promise<ExecutionResult> {
   const roleCapabilities = ROLE_CAPABILITIES[instruction.role];
 
   if (!roleCapabilities) {
-    return { success: false, error: `Role ${instruction.role} not found or has no defined capabilities.` };
+    return { success: false, error: `Role ${instruction.role} not found.` };
   }
 
   let currentInstruction = { ...instruction };
@@ -136,9 +131,8 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
 
   while (executionAttempts < MAX_ATTEMPTS) {
     executionAttempts++;
-    console.log(`[Executor] Attempt ${executionAttempts} for goal: ${currentInstruction.goal}`);
+    logger.info('Task attempt', { attempt: executionAttempts, goal: currentInstruction.goal });
 
-    // 1. LLM 生成代码/脚本
     let generatedCommand: string;
     try {
       generatedCommand = await generateCodeWithLLM(currentInstruction);
@@ -150,43 +144,35 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return { success: false, error: "LLM failed to generate a command." };
     }
 
-    // 2. 执行生成的代码/脚本或 MCP 工具
     const executionResult = await executeCommandOrMcpTool(generatedCommand, instruction.role, currentInstruction.context);
 
     if (executionResult.success) {
-      return executionResult; // 成功，返回结果
+      return executionResult;
     } else {
-      // 如果是治理验证失败，直接触发仲裁
       if (executionResult.governanceValidation && !executionResult.governanceValidation.isValid) {
-        console.warn(`[Executor] Governance validation failed. Escalating to Arbitration Expert.`);
-        const conflictDescription = `任务 [${instruction.goal}] 因治理验证失败而中止。原因：${executionResult.governanceValidation.reason}。`;
+        logger.warn('Governance failure, escalating to arbitration');
+        const conflictDescription = `Task [${instruction.goal}] aborted due to governance failure: ${executionResult.governanceValidation.reason}`;
         const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
         executionResult.arbitrationDecision = arbitrationDecision;
-        return executionResult; // 返回治理失败结果和仲裁决策
+        return executionResult;
       }
 
-      // 执行失败，触发 Tester 进行诊断
-      console.warn(`[Executor] Execution failed. Triggering Tester for diagnosis.`);
+      logger.warn('Execution failed, triggering diagnosis');
       const diagnosis = await diagnoseAndSuggestFix(executionResult.error || "Unknown error", currentInstruction.context);
-      console.log(`[Executor] Tester Diagnosis: ${JSON.stringify(diagnosis, null, 2)}`);
-
-      // 将诊断信息附加到结果中
       executionResult.diagnosis = diagnosis;
 
-      // 如果达到最大尝试次数，或者 Tester 诊断为逻辑错误且没有明确修复建议，则升级到仲裁专家
       if (executionAttempts >= MAX_ATTEMPTS || (diagnosis.isLogicError && !diagnosis.suggestedFix)) {
-        console.warn(`[Executor] Max attempts reached or unresolvable logic error. Escalating to Arbitration Expert.`);
-        const conflictDescription = `任务 [${instruction.goal}] 在 ${executionAttempts} 次尝试后仍然失败。最后一次错误：${executionResult.error}。Tester 诊断：${diagnosis.diagnosis}。`;
+        logger.warn('Max attempts reached or unresolvable error, escalating');
+        const conflictDescription = `Task [${instruction.goal}] failed after ${executionAttempts} attempts. Last error: ${executionResult.error}. Diagnosis: ${diagnosis.diagnosis}`;
         const arbitrationDecision = await arbitrateConflict(conflictDescription, currentInstruction.context);
         executionResult.arbitrationDecision = arbitrationDecision;
-        return executionResult; // 返回最终失败结果和仲裁决策
+        return executionResult;
       }
 
-      // 更新上下文，尝试让 LLM 重新生成代码
-      currentInstruction.context = `原始任务：${instruction.goal}\n上次执行失败，错误输出：${executionResult.error}\nTester 诊断：${diagnosis.diagnosis}\n修复建议：${diagnosis.suggestedFix}\n请根据修复建议重新生成代码。`;
+      currentInstruction.context = `Goal: ${instruction.goal}\nError: ${executionResult.error}\nDiagnosis: ${diagnosis.diagnosis}\nFix: ${diagnosis.suggestedFix}`;
       currentInstruction.attempt = executionAttempts;
     }
   }
 
-  return { success: false, error: "Reached maximum execution attempts without success." };
+  return { success: false, error: "Max attempts reached." };
 }

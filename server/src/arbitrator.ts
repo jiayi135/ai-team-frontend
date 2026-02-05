@@ -7,7 +7,7 @@ export interface ArbitrationDecision {
   constitutionalClause?: string; // 引用的宪法条款
 }
 
-export async function arbitrateConflict(conflictDescription: string, context: string): Promise<ArbitrationDecision> {
+export async function arbitrateConflict(conflictDescription: string, context: string, timeoutMs: number = 300000): Promise<ArbitrationDecision> {
   console.log(`[ArbitratorEngine] Requesting arbitration for conflict: ${conflictDescription}`);
 
   return new Promise((resolve, reject) => {
@@ -16,8 +16,13 @@ export async function arbitrateConflict(conflictDescription: string, context: st
       conflictDescription,
       context,
     ], {
-      cwd: '/home/ubuntu/repo-ai-team-frontend/server',
+      cwd: '/home/ubuntu/ai-team-frontend/server',
     });
+
+    const timeout = setTimeout(() => {
+      pythonProcess.kill();
+      reject(new Error(`Arbitration timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
 
     let output = '';
     let errorOutputFromPython = '';
@@ -31,6 +36,7 @@ export async function arbitrateConflict(conflictDescription: string, context: st
     });
 
     pythonProcess.on('close', (code) => {
+      clearTimeout(timeout);
       if (code !== 0) {
         console.error(`[ArbitratorEngine] Python script exited with code ${code}: ${errorOutputFromPython}`);
         reject(new Error(`Failed to arbitrate conflict: ${errorOutputFromPython}`));
@@ -47,6 +53,7 @@ export async function arbitrateConflict(conflictDescription: string, context: st
     });
 
     pythonProcess.on('error', (err) => {
+      clearTimeout(timeout);
       console.error(`[ArbitratorEngine] Failed to start Python subprocess: ${err.message}`);
       reject(err);
     });

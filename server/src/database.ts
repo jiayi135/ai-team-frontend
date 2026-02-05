@@ -1,8 +1,9 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import { Task, TaskStatus } from './task_orchestrator';
-import { ExecutionResult } from './executor';
+import { Task } from './task_orchestrator';
+import { createLogger } from './logger';
 
+const logger = createLogger('Database');
 let db: Database | null = null;
 
 export async function initializeDatabase() {
@@ -25,7 +26,7 @@ export async function initializeDatabase() {
       context TEXT
     );
   `);
-  console.log("[Database] SQLite database initialized.");
+  logger.info("SQLite database initialized");
   return db;
 }
 
@@ -43,6 +44,7 @@ export async function saveTask(task: Task) {
     task.assignedRole,
     task.context
   );
+  logger.debug("Task saved", { taskId: task.id });
 }
 
 export async function getTaskById(id: string): Promise<Task | undefined> {
