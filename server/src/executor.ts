@@ -31,10 +31,26 @@ export interface TaskInstruction {
   suggestedFix?: string;
 }
 
+async function retrieveMemories(query: string): Promise<string> {
+  return new Promise((resolve) => {
+    const pythonProcess = spawn('python3', ['./src/memory_engine.py', 'retrieve', query], {
+      cwd: '/home/ubuntu/ai-team-frontend/server',
+    });
+
+    let output = '';
+    pythonProcess.stdout.on('data', (data) => output += data.toString());
+    pythonProcess.on('close', (code) => {
+      if (code === 0) resolve(output.trim());
+      else resolve('[]');
+    });
+  });
+}
+
 async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string> {
-  // Discover tools before generation
+  // Discover tools and memories before generation
   await mcpDiscovery.discoverAll();
   const availableTools = JSON.stringify(mcpDiscovery.getAvailableTools());
+  const memories = await retrieveMemories(instruction.goal);
 
   return new Promise((resolve, reject) => {
     const args = [
@@ -45,7 +61,8 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
       (instruction.attempt || 1).toString(),
       instruction.previousError || '',
       instruction.suggestedFix || '',
-      availableTools
+      availableTools,
+      memories
     ];
 
     const pythonProcess = spawn('python3', args, {

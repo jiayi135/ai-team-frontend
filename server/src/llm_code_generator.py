@@ -3,7 +3,7 @@ import os
 import json
 from llm_client import call_llm
 
-def generate_code(role: str, goal: str, context: str, attempt: int = 1, prev_error: str = "", suggested_fix: str = "", available_tools: str = "[]") -> str:
+def generate_code(role: str, goal: str, context: str, attempt: int = 1, prev_error: str = "", suggested_fix: str = "", available_tools: str = "[]", memories: str = "[]") -> str:
     """
     Generate code or MCP workflow based on feedback loop and available tools.
     """
@@ -14,10 +14,19 @@ def generate_code(role: str, goal: str, context: str, attempt: int = 1, prev_err
         for t in tools_list:
             tools_context += f"- {t['server']}:{t['name']}: {t['description']}\n"
 
+    memory_context = ""
+    mem_list = json.loads(memories)
+    if mem_list:
+        memory_context = "\n### RELEVANT PAST MEMORIES\n"
+        for m in mem_list:
+            content = m.get('content', '') or m.get('summary', '')
+            memory_context += f"- {content}\n"
+
     system_prompt = f"""You are a professional {role} in an AI Team. 
 Your task is to generate either a single executable shell command OR a structured MCP Workflow JSON to achieve the goal.
 
 {tools_context}
+{memory_context}
 
 RULES for Output:
 1. If using standard shell: Output ONLY the command.
@@ -65,5 +74,6 @@ if __name__ == "__main__":
     error_arg = sys.argv[5] if len(sys.argv) > 5 else ""
     fix_arg = sys.argv[6] if len(sys.argv) > 6 else ""
     tools_arg = sys.argv[7] if len(sys.argv) > 7 else "[]"
+    mem_arg = sys.argv[8] if len(sys.argv) > 8 else "[]"
     
-    print(generate_code(role_arg, goal_arg, context_arg, attempt_arg, error_arg, fix_arg, tools_arg))
+    print(generate_code(role_arg, goal_arg, context_arg, attempt_arg, error_arg, fix_arg, tools_arg, mem_arg))

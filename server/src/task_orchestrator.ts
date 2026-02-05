@@ -4,6 +4,7 @@ import { ExecutionResult } from './executor';
 import { saveTask, getAllTasks } from './database';
 import { createLogger } from './logger';
 import { checkpointManager } from './checkpoint';
+import { spawn } from 'child_process';
 
 const logger = createLogger('TaskOrchestrator');
 
@@ -78,6 +79,21 @@ export class TaskOrchestrator {
     return Array.from(this.tasks.values());
   }
 
+  private memorizeTask(id: string, goal: string, result: string) {
+    const data = JSON.stringify({ id, goal, result });
+    const pythonProcess = spawn('python3', ['./src/memory_engine.py', 'memorize', data], {
+      cwd: '/home/ubuntu/ai-team-frontend/server',
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        logger.info(`Task ${id} memorized successfully`);
+      } else {
+        logger.error(`Failed to memorize task ${id}`);
+      }
+    });
+  }
+
   private async processTask(taskId: string): Promise<void> {
     const task = this.tasks.get(taskId);
     if (!task) return;
@@ -118,6 +134,8 @@ export class TaskOrchestrator {
       if (result.success) {
         task.currentStatus = TaskStatus.COMPLETED;
         logger.info(`Task ${taskId}: Completed in ${result.attempt} attempts`);
+        // Memorize the successful task
+        this.memorizeTask(taskId, task.goal, result.output || '');
       } else {
         if (result.arbitrationDecision) {
           task.currentStatus = TaskStatus.ARBITRATING;
