@@ -37,7 +37,6 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
   });
   
   return new Promise((resolve, reject) => {
-    // Pass attempt and feedback if available
     const args = [
       './src/llm_code_generator.py',
       instruction.role,
@@ -93,34 +92,41 @@ async function executeCommandOrMcpTool(command: string, role: string, context: s
     };
   }
 
-  // 2. MCP Tool Check
-  if (command.startsWith('manus-mcp-cli')) {
-    const parts = command.split(' ');
-    const toolCallIndex = parts.indexOf('call');
-    const serverIndex = parts.indexOf('--server');
-    const inputIndex = parts.indexOf('--input');
+  // 2. MCP Tool Execution Logic
+  // Matches: manus-mcp-cli tool call <tool> --server <server> --input '<json>'
+  if (command.includes('manus-mcp-cli') && command.includes('call')) {
+    try {
+      const toolMatch = command.match(/call\s+([^\s]+)/);
+      const serverMatch = command.match(/--server\s+([^\s]+)/);
+      const inputMatch = command.match(/--input\s+'(.+?)'/);
 
-    if (toolCallIndex !== -1 && serverIndex !== -1 && inputIndex !== -1) {
-      const toolName = parts[toolCallIndex + 1];
-      const serverName = parts[serverIndex + 1];
-      const inputJson = parts.slice(inputIndex + 1).join(' ').replace(/^'|'$/g, '');
+      if (toolMatch && serverMatch && inputMatch) {
+        const toolName = toolMatch[1];
+        const serverName = serverMatch[1];
+        const inputJson = inputMatch[1];
 
-      const roleCapabilities = ROLE_CAPABILITIES[role];
-      if (!roleCapabilities.mcpTools || !roleCapabilities.mcpTools.some(mcpTool => mcpTool.server === serverName && mcpTool.tools.includes(toolName))) {
-        return { success: false, error: `Role ${role} lacks permission for MCP tool ${toolName} on ${serverName}.` };
-      }
+        // Permission check
+        const roleCaps = ROLE_CAPABILITIES[role];
+        const hasPermission = roleCaps?.mcpTools?.some(
+          mcp => mcp.server === serverName && mcp.tools.includes(toolName)
+        );
 
-      try {
+        if (!hasPermission) {
+          logger.error('Unauthorized MCP tool call', { role, tool: toolName, server: serverName });
+          return { success: false, error: `Role ${role} is not authorized to use tool ${toolName} on server ${serverName}.` };
+        }
+
         const mcpClient = new McpClient(serverName);
         const result = await mcpClient.callTool(toolName, JSON.parse(inputJson));
         return { success: true, output: JSON.stringify(result, null, 2) };
-      } catch (error: any) {
-        return { success: false, error: `MCP tool execution failed: ${error.message}` };
       }
+    } catch (error: any) {
+      logger.error('MCP command parsing/execution failed', { error: error.message });
+      return { success: false, error: `MCP execution error: ${error.message}` };
     }
   }
 
-  // 3. Shell Execution
+  // 3. Standard Shell Execution
   try {
     logger.info('Executing shell command', { command });
     const { stdout, stderr } = await execAsync(command);
@@ -141,7 +147,6 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
     currentInstruction.attempt = attempt;
     logger.info(`Starting attempt ${attempt}/${MAX_ATTEMPTS}`, { goal: instruction.goal });
 
-    // Step A: Generate Code
     let generatedCommand: string;
     try {
       generatedCommand = await generateCodeWithLLM(currentInstruction);
@@ -149,7 +154,6 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return { success: false, error: `LLM generation failed: ${llmError.message}`, attempt };
     }
 
-    // Step B: Execute
     const result = await executeCommandOrMcpTool(generatedCommand, instruction.role, instruction.context);
     result.attempt = attempt;
     lastResult = result;
@@ -159,8 +163,6 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return result;
     }
 
-    // Step C: Handle Failures
-    // C1: Governance Failure (No retry, go to arbitration)
     if (result.governanceValidation && !result.governanceValidation.isValid) {
       logger.warn('Governance violation detected. Escalating to arbitration.');
       result.arbitrationDecision = await arbitrateConflict(
@@ -170,23 +172,14 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
       return result;
     }
 
-    // C2: Execution Failure - Trigger Feedback Loop
     if (attempt < MAX_ATTEMPTS) {
-      logger.warn(`Attempt ${attempt} failed. Triggering diagnosis for feedback loop.`);
+      logger.warn(`Attempt ${attempt} failed. Triggering diagnosis.`);
       const diagnosis = await diagnoseAndSuggestFix(result.error || "Unknown execution error", instruction.context);
       result.diagnosis = diagnosis;
       
-      // Update instruction for the next iteration
       currentInstruction.previousError = result.error;
       currentInstruction.suggestedFix = diagnosis.suggestedFix;
-      
-      logger.info('Feedback prepared for next attempt', { 
-        isLogicError: diagnosis.isLogicError,
-        hasFix: !!diagnosis.suggestedFix 
-      });
     } else {
-      // C3: Final Failure - Arbitration
-      logger.error(`Task failed after ${MAX_ATTEMPTS} attempts.`);
       const diagnosis = await diagnoseAndSuggestFix(result.error || "Max attempts reached", instruction.context);
       result.diagnosis = diagnosis;
       result.arbitrationDecision = await arbitrateConflict(

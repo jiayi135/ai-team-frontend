@@ -1,7 +1,9 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { createLogger } from './logger';
 
 const execAsync = promisify(exec);
+const logger = createLogger('McpClient');
 
 export class McpClient {
   private serverName: string;
@@ -11,36 +13,54 @@ export class McpClient {
   }
 
   /**
-   * 列出指定 MCP 服务器可用的工具。
-   * @returns Promise<string[]> 可用工具列表。
+   * List available tools for the specified MCP server.
    */
-  public async listTools(): Promise<string[]> {
+  public async listTools(): Promise<any> {
     try {
+      logger.info('Listing tools', { server: this.serverName });
       const { stdout } = await execAsync(`manus-mcp-cli tool list --server ${this.serverName}`);
-      // 假设输出是每行一个工具名
-      return stdout.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      
+      // Attempt to parse structured output
+      try {
+        return JSON.parse(stdout);
+      } catch {
+        return stdout.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      }
     } catch (error: any) {
-      console.error(`[McpClient] Error listing tools for server ${this.serverName}: ${error.message}`);
-      throw new Error(`Failed to list tools: ${error.message}`);
+      logger.error('Failed to list tools', { server: this.serverName, error: error.message });
+      throw new Error(`MCP listTools failed: ${error.message}`);
     }
   }
 
   /**
-   * 调用指定 MCP 工具。
-   * @param toolName 要调用的工具名称。
-   * @param inputArgs JSON 格式的工具参数。
-   * @returns Promise<any> 工具执行结果。
+   * Call a specific MCP tool with arguments.
    */
   public async callTool(toolName: string, inputArgs: Record<string, any>): Promise<any> {
-    const inputJson = JSON.stringify(inputArgs);
+    // Sanitize input: ensure it's a valid JSON string and escape single quotes for shell
+    const inputJson = JSON.stringify(inputArgs).replace(/'/g, "'\\''");
+    
     try {
       const command = `manus-mcp-cli tool call ${toolName} --server ${this.serverName} --input '${inputJson}'`;
-      console.log(`[McpClient] Calling tool ${toolName} on server ${this.serverName} with args: ${inputJson}`);
+      logger.info('Calling tool', { server: this.serverName, tool: toolName });
+      
       const { stdout } = await execAsync(command);
-      return JSON.parse(stdout);
+      
+      try {
+        // MCP CLI might return wrapped results or raw JSON
+        const parsed = JSON.parse(stdout);
+        logger.debug('Tool execution success', { server: this.serverName, tool: toolName });
+        return parsed;
+      } catch {
+        // Fallback for non-JSON stdout
+        return { rawOutput: stdout.trim() };
+      }
     } catch (error: any) {
-      console.error(`[McpClient] Error calling tool ${toolName} on server ${this.serverName}: ${error.message}`);
-      throw new Error(`Failed to call tool: ${error.message}`);
+      logger.error('Tool execution error', { 
+        server: this.serverName, 
+        tool: toolName, 
+        error: error.message 
+      });
+      throw new Error(`MCP callTool failed: ${error.message}`);
     }
   }
 }
