@@ -6,6 +6,8 @@ import { diagnoseAndSuggestFix, ErrorDiagnosis } from './tester_engine';
 import { arbitrateConflict, ArbitrationDecision } from './arbitrator';
 import { validateAgainstConstitution, GovernanceValidationResult } from './governance_hook';
 import { createLogger } from './logger';
+import { mcpDiscovery } from './mcp_discovery';
+import { workflowOrchestrator, WorkflowPlan } from './workflow_engine';
 
 const execAsync = promisify(exec);
 const logger = createLogger('Executor');
@@ -30,12 +32,10 @@ export interface TaskInstruction {
 }
 
 async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string> {
-  logger.info('Requesting code generation', { 
-    role: instruction.role, 
-    goal: instruction.goal,
-    attempt: instruction.attempt || 1 
-  });
-  
+  // Discover tools before generation
+  await mcpDiscovery.discoverAll();
+  const availableTools = JSON.stringify(mcpDiscovery.getAvailableTools());
+
   return new Promise((resolve, reject) => {
     const args = [
       './src/llm_code_generator.py',
@@ -44,7 +44,8 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
       instruction.context,
       (instruction.attempt || 1).toString(),
       instruction.previousError || '',
-      instruction.suggestedFix || ''
+      instruction.suggestedFix || '',
+      availableTools
     ];
 
     const pythonProcess = spawn('python3', args, {
@@ -54,82 +55,39 @@ async function generateCodeWithLLM(instruction: TaskInstruction): Promise<string
     let output = '';
     let errorOutput = '';
 
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
+    pythonProcess.stdout.on('data', (data) => output += data.toString());
+    pythonProcess.stderr.on('data', (data) => errorOutput += data.toString());
 
     pythonProcess.on('close', (code) => {
-      if (code !== 0) {
-        logger.error('Python code generator failed', { code, error: errorOutput });
-        reject(new Error(`Failed to generate code: ${errorOutput}`));
-      } else {
-        const result = output.trim();
-        logger.debug('Generated code', { length: result.length });
-        resolve(result);
-      }
-    });
-
-    pythonProcess.on('error', (err) => {
-      logger.error('Failed to start Python code generator', { error: err.message });
-      reject(err);
+      if (code !== 0) reject(new Error(`LLM failed: ${errorOutput}`));
+      else resolve(output.trim());
     });
   });
 }
 
-async function executeCommandOrMcpTool(command: string, role: string, context: string): Promise<ExecutionResult> {
-  // 1. Pre-execution Constitutional Guardrail (The "Red Line")
-  const validationResult = await validateAgainstConstitution(command, role, context);
-  if (!validationResult.isValid) {
-    logger.warn('Constitutional Guardrail INTERCEPTED command', { command, reason: validationResult.reason });
-    return {
-      success: false,
-      error: `INTERCEPTED: ${validationResult.reason}`,
-      governanceValidation: validationResult,
-    };
+async function executeCommandOrWorkflow(input: string, role: string, context: string): Promise<ExecutionResult> {
+  // 1. Check if it's a Workflow JSON
+  if (input.startsWith('{') && input.includes('"type": "workflow"')) {
+    try {
+      const workflowData = JSON.parse(input);
+      logger.info('Executing dynamic MCP workflow');
+      return await workflowOrchestrator.executeWorkflow(workflowData.plan);
+    } catch (e: any) {
+      return { success: false, error: `Workflow parse error: ${e.message}` };
+    }
   }
 
-  // 2. MCP Tool Execution Logic
-  if (command.includes('manus-mcp-cli') && command.includes('call')) {
-    try {
-      const toolMatch = command.match(/call\s+([^\s]+)/);
-      const serverMatch = command.match(/--server\s+([^\s]+)/);
-      const inputMatch = command.match(/--input\s+'(.+?)'/);
-
-      if (toolMatch && serverMatch && inputMatch) {
-        const toolName = toolMatch[1];
-        const serverName = serverMatch[1];
-        const inputJson = inputMatch[1];
-
-        const roleCaps = ROLE_CAPABILITIES[role];
-        const hasPermission = roleCaps?.mcpTools?.some(
-          mcp => mcp.server === serverName && mcp.tools.includes(toolName)
-        );
-
-        if (!hasPermission) {
-          return { success: false, error: `Role ${role} is not authorized for tool ${toolName} on server ${serverName}.` };
-        }
-
-        const mcpClient = new McpClient(serverName);
-        const result = await mcpClient.callTool(toolName, JSON.parse(inputJson));
-        return { success: true, output: JSON.stringify(result, null, 2) };
-      }
-    } catch (error: any) {
-      return { success: false, error: `MCP execution error: ${error.message}` };
-    }
+  // 2. Constitutional Guardrail
+  const validationResult = await validateAgainstConstitution(input, role, context);
+  if (!validationResult.isValid) {
+    return { success: false, error: `INTERCEPTED: ${validationResult.reason}`, governanceValidation: validationResult };
   }
 
   // 3. Standard Shell Execution
   try {
-    logger.info('Executing shell command', { command });
-    const { stdout, stderr } = await execAsync(command);
-    if (stderr) logger.warn('Command stderr', { stderr });
+    const { stdout } = await execAsync(input);
     return { success: true, output: stdout };
   } catch (error: any) {
-    logger.error('Command execution failed', { error: error.message });
     return { success: false, error: error.message };
   }
 }
@@ -141,49 +99,30 @@ export async function executeTask(instruction: TaskInstruction): Promise<Executi
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     currentInstruction.attempt = attempt;
-    logger.info(`Starting attempt ${attempt}/${MAX_ATTEMPTS}`, { goal: instruction.goal });
-
-    let generatedCommand: string;
+    
+    let generatedInput: string;
     try {
-      generatedCommand = await generateCodeWithLLM(currentInstruction);
+      generatedInput = await generateCodeWithLLM(currentInstruction);
     } catch (llmError: any) {
       return { success: false, error: `LLM generation failed: ${llmError.message}`, attempt };
     }
 
-    const result = await executeCommandOrMcpTool(generatedCommand, instruction.role, instruction.context);
+    const result = await executeCommandOrWorkflow(generatedInput, instruction.role, instruction.context);
     result.attempt = attempt;
     lastResult = result;
 
-    if (result.success) {
-      logger.info(`Task succeeded on attempt ${attempt}`);
-      return result;
-    }
+    if (result.success) return result;
 
-    // Handle Governance Violations (No retries for constitutional breaches)
     if (result.governanceValidation && !result.governanceValidation.isValid) {
-      logger.warn('Pre-execution governance breach. Escalating to arbitration.');
-      result.arbitrationDecision = await arbitrateConflict(
-        `Critical: Constitutional Guardrail intercepted a violation in attempt ${attempt}: ${result.governanceValidation.reason}`,
-        instruction.context
-      );
+      result.arbitrationDecision = await arbitrateConflict(`Breach: ${result.governanceValidation.reason}`, instruction.context);
       return result;
     }
 
-    // Feedback Loop for standard execution errors
     if (attempt < MAX_ATTEMPTS) {
-      logger.warn(`Attempt ${attempt} failed. Triggering diagnosis.`);
-      const diagnosis = await diagnoseAndSuggestFix(result.error || "Unknown execution error", instruction.context);
+      const diagnosis = await diagnoseAndSuggestFix(result.error || "Error", instruction.context);
       result.diagnosis = diagnosis;
-      
       currentInstruction.previousError = result.error;
       currentInstruction.suggestedFix = diagnosis.suggestedFix;
-    } else {
-      const diagnosis = await diagnoseAndSuggestFix(result.error || "Max attempts reached", instruction.context);
-      result.diagnosis = diagnosis;
-      result.arbitrationDecision = await arbitrateConflict(
-        `Task failed all ${MAX_ATTEMPTS} attempts. Last error: ${result.error}`,
-        instruction.context
-      );
     }
   }
 
