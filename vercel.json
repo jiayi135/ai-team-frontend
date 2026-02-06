@@ -11,18 +11,18 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "server/src/index.ts"
+      "source": "/api/:path*",
+      "destination": "/server/src/index.ts"
     },
     {
-      "src": "/socket.io/(.*)",
-      "dest": "server/src/index.ts"
+      "source": "/socket.io/:path*",
+      "destination": "/server/src/index.ts"
     },
     {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/((?!api|socket.io).*)",
+      "destination": "/index.html"
     }
   ]
 }

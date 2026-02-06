@@ -201,7 +201,13 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-});
+// Export the app for Vercel Serverless Functions
+export default app;
+
+// Only listen if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3001;
+  httpServer.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+  });
+}
