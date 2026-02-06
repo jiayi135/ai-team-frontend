@@ -7,6 +7,8 @@ import {
   Clock,
   Zap,
   ShieldCheck,
+  Wrench,
+  ChevronRight,
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import KPICard from '@/components/dashboard/KPICard';
@@ -86,6 +88,27 @@ export default function Home() {
       title="仪表盘"
       subtitle="AI 团队治理系统实时监控 (P.R.O.M.P.T. 框架)"
     >
+
+      {/* Quick Access to Tools */}
+      <div className="mb-8 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+            <Wrench size={30} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">MCP 工具管理中心</h3>
+            <p className="text-blue-100 text-sm">即时调用与调试 20+ 外部治理插件</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setLocation('/tools')}
+          className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition-colors flex items-center gap-2"
+        >
+          进入管理后台
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
       {/* Task Composer Section */}
       <div className="mb-12">
         <TaskComposer onSubmit={handleTaskSubmit} isLoading={isSubmitting} />

@@ -90,7 +90,7 @@ export class TaskOrchestrator {
   private memorizeTask(id: string, goal: string, result: string) {
     const data = JSON.stringify({ id, goal, result });
     const pythonProcess = spawn('python3', ['./src/memory_engine.py', 'memorize', data], {
-      cwd: '/home/ubuntu/ai-team-frontend/server',
+      cwd: path.resolve(__dirname, '..'),
     });
 
     pythonProcess.on('close', (code) => {

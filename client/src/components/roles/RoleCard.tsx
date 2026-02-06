@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Terminal } from 'lucide-react';
 import RoleCapabilitiesPanel from './RoleCapabilitiesPanel';
 
 interface RoleCardProps {
@@ -13,6 +13,7 @@ interface RoleCardProps {
   icon?: React.ReactNode;
   isActive?: boolean;
   roleId?: string;
+  systemPrompt?: string;
 }
 
 const colorMap = {
@@ -40,15 +41,18 @@ export default function RoleCard({
   icon,
   isActive = false,
   roleId,
+  systemPrompt
 }: RoleCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
+
   const colorClass = colorMap[color as keyof typeof colorMap] || colorMap.blue;
   const badgeColor = badgeColorMap[color as keyof typeof badgeColorMap] || badgeColorMap.blue;
 
   return (
     <div
       className={cn(
-        'rounded-xl border-2 p-6 transition-all hover:shadow-lg',
+        'rounded-xl border-2 p-6 transition-all hover:shadow-lg h-full flex flex-col',
         colorClass,
         isActive && 'ring-2 ring-offset-2 ring-blue-500'
       )}
@@ -66,7 +70,7 @@ export default function RoleCard({
       </div>
 
       {/* Responsibilities */}
-      <div className="mb-4">
+      <div className="mb-4 flex-grow">
         <h4 className="text-sm font-semibold text-slate-900 mb-2">职责范围</h4>
         <ul className="space-y-1">
           {responsibilities.map((resp, idx) => (
@@ -84,9 +88,29 @@ export default function RoleCard({
         <p className="text-xs text-slate-600">{restrictions}</p>
       </div>
 
+      {/* System Prompt Section */}
+      {systemPrompt && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowPrompt(!showPrompt)}
+            className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors uppercase tracking-wider"
+          >
+            <Terminal size={12} />
+            {showPrompt ? '隐藏系统提示词' : '显示系统提示词 (宪法原文)'}
+          </button>
+          {showPrompt && (
+            <div className="mt-2 p-3 bg-slate-900 rounded-lg border border-slate-800 shadow-inner">
+              <pre className="text-[10px] font-mono text-blue-300 whitespace-pre-wrap leading-relaxed">
+                {systemPrompt}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Capabilities Toggle */}
       {roleId && (
-        <>
+        <div className="mt-auto">
           <button
             onClick={() => setExpanded(!expanded)}
             className="w-full flex items-center justify-between p-3 bg-white/40 hover:bg-white/60 rounded-lg border border-slate-200/50 transition-all text-sm font-medium text-slate-900"
@@ -100,7 +124,7 @@ export default function RoleCard({
               <RoleCapabilitiesPanel roleName={roleId} />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
