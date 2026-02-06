@@ -115,10 +115,10 @@ function loadMapScript() {
     script.onload = () => {
       isMapScriptLoaded = true;
       resolve();
-      // Safely remove script - check if parent exists before removing
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
+      // Do NOT remove the script tag. 
+      // Google Maps API often expects its script tag to remain in the DOM,
+      // and removing it can cause "removeChild" errors when other libraries (like Radix UI)
+      // perform DOM reconciliation or when Google Maps tries to access its own script.
     };
     script.onerror = () => {
       console.error("Failed to load Google Maps script");

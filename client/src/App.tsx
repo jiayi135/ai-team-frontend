@@ -32,6 +32,23 @@ function Router() {
   );
 }
 
+// Global patch for the notorious "removeChild" error
+if (typeof window !== 'undefined') {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function<T extends Node>(child: T): T {
+    if (child.parentNode !== this) {
+      if (console) {
+        console.warn('Prevented removeChild error: node is not a child of this parent.', {
+          parent: this,
+          child: child
+        });
+      }
+      return child;
+    }
+    return originalRemoveChild.call(this, child) as T;
+  };
+}
+
 function App() {
   return (
     <ErrorBoundary>
