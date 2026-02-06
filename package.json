@@ -100,8 +100,7 @@
   },
   "packageManager": "pnpm@10.4.1",
   "engines": {
-    "node": ">=22",
-    "pnpm": ">=10"
+    "node": ">=22"
   },
   "pnpm": {
     "patchedDependencies": {
