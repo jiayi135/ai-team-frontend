@@ -62,12 +62,13 @@ export default function Settings() {
   const handleProviderChange = (value: string) => {
     const provider = providers.find(p => p.id === value);
     if (provider) {
-      setConfig({
-        ...config,
+      // Use functional update to ensure state consistency
+      setConfig(prev => ({
+        ...prev,
         provider: value,
         baseUrl: provider.defaultUrl,
         modelName: provider.defaultModel,
-      });
+      }));
     }
   };
 
@@ -99,7 +100,12 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">模型供应商</label>
-                <Select value={config.provider} onValueChange={handleProviderChange}>
+                {/* Add key to Select to force re-render on provider change, preventing DOM sync issues */}
+                <Select 
+                  key={`provider-${config.provider}`}
+                  value={config.provider} 
+                  onValueChange={handleProviderChange}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="选择供应商" />
                   </SelectTrigger>
