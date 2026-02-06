@@ -53,6 +53,8 @@ export default function Settings() {
     { id: 'deepseek', name: 'DeepSeek', defaultUrl: 'https://api.deepseek.com', defaultModel: 'deepseek-chat' },
     { id: 'anthropic', name: 'Anthropic (via Proxy)', defaultUrl: '', defaultModel: 'claude-3-5-sonnet-latest' },
     { id: 'google', name: 'Google Gemini', defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', defaultModel: 'gemini-1.5-pro' },
+    { id: 'z-ai', name: 'Zhipu AI (GLM)', defaultUrl: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-plus' },
+    { id: 'minimax', name: 'MiniMax', defaultUrl: 'https://api.minimax.chat/v1', defaultModel: 'abab6.5s-chat' },
     { id: 'local', name: 'Local / Ollama', defaultUrl: 'http://localhost:11434/v1', defaultModel: 'llama3' },
   ];
 

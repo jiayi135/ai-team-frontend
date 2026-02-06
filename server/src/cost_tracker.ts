@@ -49,6 +49,8 @@ export class CostTracker {
     { name: 'OpenAI (GPT-4o)', color: '#3b82f6' },
     { name: 'Anthropic (Claude 3.5)', color: '#8b5cf6' },
     { name: 'Google (Gemini 1.5)', color: '#ec4899' },
+    { name: 'Zhipu AI (GLM)', color: '#f59e0b' },
+    { name: 'MiniMax', color: '#14b8a6' },
     { name: 'Local (Llama 3)', color: '#10b981' }
   ];
 
@@ -246,6 +248,8 @@ export class CostTracker {
       'OpenAI (GPT-4o)': 12.5,
       'Anthropic (Claude 3.5)': -5.2,
       'Google (Gemini 1.5)': 8.5,
+      'Zhipu AI (GLM)': 4.2,
+      'MiniMax': 6.1,
       'Local (Llama 3)': 0
     };
     return trends[provider] || 0;

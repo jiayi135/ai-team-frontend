@@ -3,7 +3,7 @@ import { OpenAI } from 'openai';
 
 const logger = createLogger('LLMFactory');
 
-export type ModelProvider = 'openai' | 'anthropic' | 'deepseek' | 'google' | 'local';
+export type ModelProvider = 'openai' | 'anthropic' | 'deepseek' | 'google' | 'local' | 'z-ai' | 'minimax';
 
 export interface LLMConfig {
   provider: ModelProvider;
@@ -52,6 +52,8 @@ export class LLMClient {
       case 'openai': return 'https://api.openai.com/v1';
       case 'deepseek': return 'https://api.deepseek.com';
       case 'google': return 'https://generativelanguage.googleapis.com/v1beta/openai';
+      case 'z-ai': return 'https://open.bigmodel.cn/api/paas/v4';
+      case 'minimax': return 'https://api.minimax.chat/v1';
       default: return 'https://api.openai.com/v1';
     }
   }
