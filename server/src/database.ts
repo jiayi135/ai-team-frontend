@@ -9,8 +9,12 @@ let db: Database | null = null;
 export async function initializeDatabase() {
   if (db) return db;
 
+  // In Vercel environment, /tmp is the only writable directory
+  const isVercel = process.env.VERCEL === '1';
+  const dbPath = isVercel ? '/tmp/ai_team_governance.db' : './ai_team_governance.db';
+
   db = await open({
-    filename: './ai_team_governance.db',
+    filename: dbPath,
     driver: sqlite3.Database,
   });
 
