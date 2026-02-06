@@ -83,9 +83,12 @@ export default function Tasks() {
   
   const { socket, isConnected } = useSocket();
 
+  // Use relative path for API calls to work in both dev and production (Vercel)
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+
   const fetchTasks = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/tasks');
+      const response = await fetch(`${API_BASE}/tasks`);
       const result = await response.json();
       if (result.success && result.tasks) {
         setAllTasks(result.tasks);
@@ -160,7 +163,7 @@ export default function Tasks() {
     setExecutionOutput('Initializing P.R.O.M.P.T. Task...\n');
     
     try {
-      const response = await fetch('http://localhost:3001/api/execute/task', {
+      const response = await fetch(`${API_BASE}/execute/task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

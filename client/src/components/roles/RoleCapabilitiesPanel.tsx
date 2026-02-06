@@ -73,11 +73,14 @@ export default function RoleCapabilitiesPanel({ roleName }: RoleCapabilitiesPane
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use relative path for API calls to work in both dev and production (Vercel)
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+
   useEffect(() => {
     const fetchCapabilities = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/roles/${roleName}/capabilities`);
+        const response = await fetch(`${API_BASE}/roles/${roleName}/capabilities`);
         if (!response.ok) {
           throw new Error('Failed to fetch capabilities');
         }
@@ -91,7 +94,7 @@ export default function RoleCapabilitiesPanel({ roleName }: RoleCapabilitiesPane
     };
 
     fetchCapabilities();
-  }, [roleName]);
+  }, [roleName, API_BASE]);
 
   if (loading) {
     return (

@@ -15,13 +15,17 @@ def get_llm_client():
     client = OpenAI(base_url=base_url, api_key=api_key)
     return client
 
-def call_llm(messages, model="thm/glm-4-9b-chat", temperature=0.2, max_tokens=1024):
+def call_llm(messages, model=None, temperature=0.2, max_tokens=1024):
     """
     Common function to call the LLM.
-    Default model is set to a common NVIDIA hosted one, but can be overridden.
-    User suggested models: z-ai/glm-4 or minimaxai/minimax-m2.1
-    Note: Exact model strings might vary based on NVIDIA's catalog.
+    Priority:
+    1. model parameter passed to the function
+    2. LLM_MODEL environment variable
+    3. Default to 'z-ai/glm-4' as requested by user
     """
+    if model is None:
+        model = os.environ.get("LLM_MODEL", "z-ai/glm-4")
+        
     client = get_llm_client()
     try:
         response = client.chat.completions.create(

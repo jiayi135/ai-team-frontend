@@ -17,7 +17,7 @@ export async function diagnoseAndSuggestFix(errorOutput: string, context: string
       errorOutput,
       context,
     ], {
-      cwd: '/home/ubuntu/repo-ai-team-frontend/server',
+      cwd: '/home/ubuntu/ai-team-frontend/server',
     });
 
     let output = '';
