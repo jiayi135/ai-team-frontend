@@ -136,11 +136,24 @@ app.post('/api/negotiations/start', (req, res) => {
 // Cost API Routes (Article III)
 // ============================================
 app.get('/api/costs/summary', (req, res) => {
-  res.json({ success: true, summary: costTracker.getSummary() });
+  res.json({ success: true, ...costTracker.getCostSummary() });
+});
+
+app.get('/api/costs/by-provider', (req, res) => {
+  res.json({ success: true, data: costTracker.getCostByProvider() });
+});
+
+app.get('/api/costs/by-category', (req, res) => {
+  res.json({ success: true, data: costTracker.getCostByCategory() });
 });
 
 app.get('/api/costs/history', (req, res) => {
-  res.json({ success: true, history: costTracker.getHistory() });
+  const days = parseInt(req.query.days as string) || 30;
+  res.json({ success: true, data: costTracker.getCostHistory(days) });
+});
+
+app.get('/api/costs/alerts', (req, res) => {
+  res.json({ success: true, alerts: costTracker.getAlerts() });
 });
 
 // ============================================
