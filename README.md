@@ -1,3 +1,12 @@
+---
+title: AI Team Governance Dashboard
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # AI 团队协作系统前端
 
 这是一个现代化、响应式、功能完整的 Web 前端界面，用于管理、监控和交互自主迭代 AI 团队系统。

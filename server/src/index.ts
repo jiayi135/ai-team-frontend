@@ -2,6 +2,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { initTaskOrchestrator, taskOrchestrator } from './task_orchestrator';
 import { createLogger } from './logger';
 import { negotiationEngine, ConflictDimension } from './negotiation_engine';
@@ -23,6 +28,10 @@ initTaskOrchestrator(io);
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the frontend build directory
+const distPath = path.resolve(__dirname, '../../dist/public');
+app.use(express.static(distPath));
 
 // ============================================
 // Task API Routes
@@ -201,13 +210,16 @@ io.on('connection', (socket) => {
   });
 });
 
-// Export the app for Vercel Serverless Functions
-export default app;
+// Handle SPA routing - send all non-API requests to index.html
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
+    res.sendFile(path.join(distPath, 'index.html'));
+  }
+});
 
-// Only listen if not in Vercel environment
-if (process.env.VERCEL !== '1') {
-  const PORT = process.env.PORT || 3001;
-  httpServer.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
-  });
-}
+const PORT = process.env.PORT || 7860; // Hugging Face Spaces default port is 7860
+httpServer.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Server running on port ${PORT}`);
+});
+
+export default app;
