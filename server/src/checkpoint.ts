@@ -3,7 +3,7 @@ import * as path from 'path';
 import { createLogger } from './logger';
 
 const logger = createLogger('CheckpointManager');
-const CHECKPOINT_DIR = path.join('/home/ubuntu/ai-team-frontend/server', 'checkpoints');
+const CHECKPOINT_DIR = path.join(path.resolve(__dirname, '..'), 'checkpoints');
 
 export interface CheckpointData {
   taskId: string;

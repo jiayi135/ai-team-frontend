@@ -15,6 +15,7 @@ import { costTracker } from './cost_tracker';
 import { webSearchService } from './web_search';
 import { llmFactory } from './llm_factory';
 import { PromptGenerator } from './prompt_generator';
+import mcpRoutes from './mcp_routes';
 
 const logger = createLogger('Server');
 const app = express();
@@ -175,6 +176,12 @@ app.get('/api/health/status', (req, res) => {
 app.get('/api/health/audit-logs', (req, res) => {
   res.json({ success: true, logs: healthMonitor.getAuditLogs() });
 });
+
+// ============================================
+// MCP & Governance Routes
+// ============================================
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/governance', mcpRoutes);
 
 // ============================================
 // Web Search API Routes (Article V)

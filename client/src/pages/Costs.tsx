@@ -46,11 +46,29 @@ export default function Costs() {
   const [costHistory, setCostHistory] = useState<CostHistory[]>([]);
   const [alerts, setAlerts] = useState<CostAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [quota, setQuota] = useState({ remainingBudget: 1000, totalBudget: 1000, spending: 0 });
   const [error, setError] = useState<string | null>(null);
 
   const { isConnected } = useSocket();
 
   // 获取所有成本数据
+
+  const fetchQuota = async () => {
+    try {
+      const response = await fetch('/api/governance/quota/status');
+      const data = await response.json();
+      if (data.success) {
+        setQuota({
+          remainingBudget: data.remainingBudget,
+          totalBudget: data.totalBudget,
+          spending: data.spending
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch quota:', err);
+    }
+  };
+
   const fetchCostData = async () => {
     try {
       setIsLoading(true);
@@ -114,12 +132,13 @@ export default function Costs() {
 
   useEffect(() => {
     fetchCostData();
+    fetchQuota();
   }, []);
 
-  const totalCost = summary?.totalCost || 0;
-  const monthlyBudget = summary?.monthlyBudget || 20000;
+  const totalCost = quota.spending || summary?.totalCost || 0;
+  const monthlyBudget = quota.totalBudget || summary?.monthlyBudget || 20000;
   const budgetUtilization = summary?.budgetUtilization || 0;
-  const remainingBudget = summary?.remainingBudget || 0;
+  const remainingBudget = quota.remainingBudget || summary?.remainingBudget || 0;
   const costChange = summary?.costChange || 0;
 
   return (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import RoleCard from '@/components/roles/RoleCard';
 import { ROLE_DETAILS, ROLES } from '@/lib/constants';
@@ -9,6 +9,7 @@ import {
   CheckSquare,
   Scale,
   ShieldAlert,
+  Loader2
 } from 'lucide-react';
 
 const roleIcons = {
@@ -20,6 +21,26 @@ const roleIcons = {
 };
 
 export default function Roles() {
+  const [prompts, setPrompts] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      try {
+        const response = await fetch('/api/governance/prompts');
+        const data = await response.json();
+        if (data.success) {
+          setPrompts(data.prompts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch prompts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPrompts();
+  }, []);
+
   return (
     <MainLayout
       title="角色管理"
@@ -56,6 +77,7 @@ export default function Roles() {
             icon={roleIcons[roleKey as keyof typeof roleIcons]}
             isActive={true}
             roleId={roleKey}
+            systemPrompt={prompts[roleKey]}
           />
         ))}
       </div>
@@ -66,11 +88,10 @@ export default function Roles() {
           上下文继承与协作协议 (Contextual Heritage)
         </h2>
         <p className="text-slate-600 mb-8 leading-relaxed">
-          为了保持完整的协作链条，系统采用<strong>上下文继承</strong>机制。前序角色的输出自动作为后续角色的强制性输入和约束集，确保在交付过程中不丢失任何战略意图。
+          为了保持完整的协作链条，系统采用<strong>上下文继承</strong>机制。前序角色的输出自动作为后续角色的强制性输入 and 约束集，确保在交付过程中不丢失任何战略意图。
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-          {/* Connection Line (Desktop) */}
           <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-100 -translate-y-1/2 z-0"></div>
           
           {[
