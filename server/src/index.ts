@@ -212,6 +212,27 @@ app.post('/api/mcp-tools/call', async (req, res) => {
   }
 });
 
+// Tool Generation API
+app.post('/api/tools/generate', async (req, res) => {
+  const { prompt, role = 'Developer', context = '' } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ success: false, error: 'Prompt is required' });
+  }
+
+  try {
+    const { executeTask } = await import('./executor');
+    const result = await executeTask({
+      role,
+      goal: `Generate a tool or workflow for: ${prompt}`,
+      context: `User request for tool generation. ${context}`
+    });
+    res.json(result);
+  } catch (error: any) {
+    logger.error('Failed to generate tool', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================
 // Web Search API Routes (Article V)
 // ============================================

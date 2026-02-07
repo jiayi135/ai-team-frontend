@@ -7,13 +7,13 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Roles from "./pages/Roles";
 import Tools from "./pages/Tools";
+import ToolGenerator from "./pages/ToolGenerator";
 import Negotiations from "./pages/Negotiations";
 import Tasks from "./pages/Tasks";
 import Costs from "./pages/Costs";
 import Health from "./pages/Health";
 import Search from "./pages/Search";
 import Settings from "./pages/Settings";
-import Tools from "./pages/Tools";
 
 
 function Router() {
@@ -27,8 +27,8 @@ function Router() {
       <Route path={"/health"} component={Health} />
       <Route path={"/search"} component={Search} />
       <Route path={"/tools"} component={Tools} />
+      <Route path={"/tool-generator"} component={ToolGenerator} />
       <Route path={"/settings"} component={Settings} />
-      <Route path={"/tools"} component={Tools} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -13,6 +13,7 @@ import {
   Globe,
   Settings,
   Wrench,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ const navItems = [
   { label: '系统健康', href: '/health', icon: BarChart3 },
   { label: '互联网搜索', href: '/search', icon: Globe },
   { label: '工具管理', href: '/tools', icon: Wrench },
+  { label: '工具生成', href: '/tool-generator', icon: Sparkles },
   { label: '系统设置', href: '/settings', icon: Settings },
 ];
 
