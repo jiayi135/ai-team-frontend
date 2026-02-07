@@ -16,6 +16,8 @@ import { webSearchService } from './web_search';
 import { llmFactory } from './llm_factory';
 import { PromptGenerator } from './prompt_generator';
 import mcpRoutes from './mcp_routes';
+import { mcpDiscovery } from './mcp_discovery';
+import { McpClient } from './mcp_client';
 
 const logger = createLogger('Server');
 const app = express();
@@ -182,6 +184,33 @@ app.get('/api/health/audit-logs', (req, res) => {
 // ============================================
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/governance', mcpRoutes);
+
+// Additional MCP Tools API Routes for Frontend
+app.get('/api/mcp-tools', async (req, res) => {
+  try {
+    await mcpDiscovery.discoverAll();
+    const tools = mcpDiscovery.getAvailableTools();
+    res.json({ success: true, tools });
+  } catch (error: any) {
+    logger.error('Failed to list MCP tools', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/mcp-tools/call', async (req, res) => {
+  try {
+    const { toolName, server, inputArgs } = req.body;
+    if (!toolName || !server) {
+      return res.status(400).json({ success: false, error: 'toolName and server are required' });
+    }
+    const client = new McpClient(server);
+    const result = await client.callTool(toolName, inputArgs || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    logger.error('Failed to call MCP tool', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ============================================
 // Web Search API Routes (Article V)

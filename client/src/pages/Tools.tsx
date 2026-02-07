@@ -36,23 +36,26 @@ export default function Tools() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTool, setSelectedTool] = useState<McpTool | null>(null);
-  const [toolArgs, setToolArgs] = useState<string>('{}');
+  const [toolInputs, setToolInputs] = useState<Record<string, any>>({});
   const [executing, setExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
 
-  const API_BASE = '/api/mcp';
+  // Load tools on component mount
+  useEffect(() => {
+    fetchTools();
+  }, []);
 
   const fetchTools = async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const endpoint = refresh ? `${API_BASE}/discovery/refresh` : `${API_BASE}/tool/list`;
-      const response = await fetch(endpoint, { method: refresh ? 'POST' : 'GET' });
+      // Use the newly created /api/mcp-tools endpoint
+      const response = await fetch('/api/mcp-tools');
       const data = await response.json();
 
       if (data.success) {
-        setTools(data.tools);
+        setTools(data.tools || []);
         if (refresh) toast.success('工具列表已更新');
       } else {
         toast.error('获取工具列表失败');
@@ -66,9 +69,18 @@ export default function Tools() {
     }
   };
 
-  useEffect(() => {
-    fetchTools();
-  }, []);
+  const handleToolSelect = (tool: McpTool) => {
+    setSelectedTool(tool);
+    setToolInputs({});
+    setExecutionResult(null);
+  };
+
+  const handleInputChange = (paramName: string, value: any) => {
+    setToolInputs(prev => ({
+      ...prev,
+      [paramName]: value
+    }));
+  };
 
   const handleCallTool = async () => {
     if (!selectedTool) return;
@@ -77,22 +89,13 @@ export default function Tools() {
     setExecutionResult(null);
 
     try {
-      let args = {};
-      try {
-        args = JSON.parse(toolArgs);
-      } catch (e) {
-        toast.error('参数格式错误，请确保是有效的 JSON');
-        setExecuting(false);
-        return;
-      }
-
-      const response = await fetch(`${API_BASE}/tool/call`, {
+      const response = await fetch('/api/mcp-tools/call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          toolName: selectedTool.name,
           server: selectedTool.server,
-          tool: selectedTool.name,
-          args
+          inputArgs: toolInputs
         })
       });
 
@@ -125,6 +128,18 @@ export default function Tools() {
       case 'cloudflare': return <Database size={16} />;
       default: return <Wrench size={16} />;
     }
+  };
+
+  const getInputFields = () => {
+    if (!selectedTool?.inputSchema) return [];
+    
+    const properties = selectedTool.inputSchema.properties || {};
+    return Object.entries(properties).map(([key, value]: [string, any]) => ({
+      name: key,
+      type: value.type || 'string',
+      description: value.description || '',
+      required: selectedTool.inputSchema.required?.includes(key) || false
+    }));
   };
 
   return (
@@ -170,7 +185,7 @@ export default function Tools() {
                   {filteredTools.map((tool) => (
                     <button
                       key={`${tool.server}:${tool.name}`}
-                      onClick={() => setSelectedTool(tool)}
+                      onClick={() => handleToolSelect(tool)}
                       className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-3 ${
                         selectedTool?.name === tool.name && selectedTool?.server === tool.server
                           ? 'bg-blue-50 border-r-4 border-blue-500'
@@ -193,105 +208,127 @@ export default function Tools() {
                   ))}
                 </div>
               ) : (
-                <div className="py-12 text-center">
-                  <Info className="mx-auto text-slate-300 mb-2" size={32} />
-                  <p className="text-sm text-slate-500">未找到匹配的工具</p>
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-400">
+                  <AlertCircle size={32} />
+                  <p className="text-sm">未找到匹配的工具</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: Tool Details & Console */}
+        {/* Right Column: Tool Details & Debugger */}
         <div className="lg:col-span-2 space-y-6">
           {selectedTool ? (
             <>
-              <Card className="border-2 border-blue-100 shadow-md">
-                <CardHeader className="bg-blue-50/50">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Badge className="mb-2 bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200">
-                        {selectedTool.server.toUpperCase()} SERVER
-                      </Badge>
-                      <CardTitle className="text-2xl font-bold text-slate-900">{selectedTool.name}</CardTitle>
-                      <CardDescription className="mt-1 text-slate-600">
-                        {selectedTool.description}
-                      </CardDescription>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                        {getServerIcon(selectedTool.server)}
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">{selectedTool.name}</CardTitle>
+                        <CardDescription>来自服务器: {selectedTool.server}</CardDescription>
+                      </div>
                     </div>
-                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-blue-100 flex items-center justify-center text-blue-500">
-                      {getServerIcon(selectedTool.server)}
-                    </div>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      已就绪
+                    </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-6">
-                  <Tabs defaultValue="invoke">
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="invoke" className="gap-2">
-                        <Play size={14} /> 即时调用
-                      </TabsTrigger>
-                      <TabsTrigger value="schema" className="gap-2">
-                        <Terminal size={14} /> 参数定义
-                      </TabsTrigger>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                      <Info size={16} className="text-blue-500" />
+                      功能描述
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {selectedTool.description}
+                    </p>
+                  </div>
+
+                  <Tabs defaultValue="params">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="params">参数配置</TabsTrigger>
+                      <TabsTrigger value="schema">输入架构 (JSON Schema)</TabsTrigger>
                     </TabsList>
-
-                    <TabsContent value="invoke" className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-700">调用参数 (JSON)</label>
-                        <div className="relative">
-                          <textarea
-                            className="w-full min-h-[150px] p-4 font-mono text-sm bg-slate-900 text-blue-300 rounded-lg border border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                            value={toolArgs}
-                            onChange={(e) => setToolArgs(e.target.value)}
-                            placeholder='{ "key": "value" }'
-                          />
+                    <TabsContent value="params" className="pt-4 space-y-4">
+                      {getInputFields().length > 0 ? (
+                        getInputFields().map((field) => (
+                          <div key={field.name}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              {field.name}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {field.description && (
+                              <p className="text-xs text-slate-500 mb-2">{field.description}</p>
+                            )}
+                            <Input
+                              type={field.type === 'number' ? 'number' : 'text'}
+                              value={toolInputs[field.name] || ''}
+                              onChange={(e) => handleInputChange(field.name, e.target.value)}
+                              placeholder={`输入 ${field.name}...`}
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="bg-slate-50 p-4 rounded-lg text-center text-sm text-slate-500">
+                          此工具不需要任何参数。
                         </div>
-                      </div>
-                      <Button
-                        onClick={handleCallTool}
-                        className="w-full bg-blue-600 hover:bg-blue-700 gap-2 h-11"
-                        disabled={executing}
-                      >
-                        {executing ? <Loader2 className="animate-spin" size={18} /> : <Play size={18} />}
-                        执行工具操作
-                      </Button>
+                      )}
                     </TabsContent>
-
-                    <TabsContent value="schema">
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                        <pre className="text-xs font-mono overflow-x-auto">
-                          {JSON.stringify(selectedTool.inputSchema, null, 2)}
-                        </pre>
-                      </div>
+                    <TabsContent value="schema" className="pt-4">
+                      <pre className="text-xs bg-slate-900 text-slate-300 p-4 rounded-lg overflow-auto max-h-64">
+                        {JSON.stringify(selectedTool.inputSchema, null, 2)}
+                      </pre>
                     </TabsContent>
                   </Tabs>
                 </CardContent>
+                <CardFooter className="border-t bg-slate-50/50 py-4 flex justify-between">
+                  <div className="text-xs text-slate-400">
+                    P.R.O.M.P.T. 治理框架 - MCP 动态调用引擎
+                  </div>
+                  <Button
+                    onClick={handleCallTool}
+                    disabled={executing}
+                    className="bg-blue-600 hover:bg-blue-700 min-w-[120px]"
+                  >
+                    {executing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        正在执行...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="mr-2 h-4 w-4" />
+                        立即执行
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
               </Card>
 
-              {/* Execution Console */}
-              {(executionResult || executing) && (
-                <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden">
-                  <CardHeader className="border-b border-slate-800 py-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
-                        <Terminal size={16} />
-                        输出控制台
-                      </CardTitle>
-                      {executionResult && !executionResult.error && (
-                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20">SUCCESS</Badge>
-                      )}
-                      {executionResult?.error && (
-                        <Badge className="bg-red-500/10 text-red-500 border-red-500/20">ERROR</Badge>
-                      )}
-                    </div>
+              {executionResult && (
+                <Card className={`border-2 ${executionResult.error ? 'border-red-200' : 'border-green-200'}`}>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Terminal size={16} />
+                      执行结果
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="max-h-[300px] overflow-y-auto p-4 font-mono text-xs text-blue-200">
-                      {executing ? (
-                        <div className="flex items-center gap-2 animate-pulse">
-                          <span>{'>'} Sending command to {selectedTool.server}...</span>
+                  <CardContent>
+                    <div className={`p-4 rounded-lg ${executionResult.error ? 'bg-red-50' : 'bg-slate-900'}`}>
+                      {executionResult.error ? (
+                        <div className="flex items-start gap-2 text-red-700 text-sm">
+                          <AlertCircle size={16} className="mt-0.5" />
+                          <p>{executionResult.error}</p>
                         </div>
                       ) : (
-                        <pre>{JSON.stringify(executionResult, null, 2)}</pre>
+                        <pre className="text-xs text-green-400 overflow-auto max-h-96">
+                          {JSON.stringify(executionResult, null, 2)}
+                        </pre>
                       )}
                     </div>
                   </CardContent>
@@ -299,32 +336,16 @@ export default function Tools() {
               )}
             </>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-              <div className="w-20 h-20 bg-white rounded-full shadow-md flex items-center justify-center mb-6 text-slate-300">
-                <Wrench size={40} />
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4 py-20 border-2 border-dashed rounded-xl">
+              <div className="p-4 bg-slate-100 rounded-full">
+                <Wrench size={48} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">未选择工具</h3>
-              <p className="text-slate-500 max-w-sm">
-                从左侧列表中选择一个 MCP 工具来查看其详细信息并执行即时调用测试。
-              </p>
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-slate-900">未选择工具</h3>
+                <p className="text-sm">从左侧列表中选择一个 MCP 工具进行管理和调试</p>
+              </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Info Section */}
-      <div className="mt-12 bg-blue-50 rounded-xl border border-blue-100 p-6">
-        <h4 className="flex items-center gap-2 font-bold text-blue-900 mb-3">
-          <Info size={18} />
-          关于 MCP 插件生态系统
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-blue-800">
-          <p>
-            <strong>什么是 MCP？</strong> Model Context Protocol 是由 Anthropic 提出的开放标准，允许 AI 模型与外部工具和数据源进行安全交互。
-          </p>
-          <p>
-            <strong>治理审计：</strong> 所有通过此界面执行的工具调用都会被记录在系统的审计日志中，确保 AI 团队的行为可追溯、可审计。
-          </p>
         </div>
       </div>
     </MainLayout>
