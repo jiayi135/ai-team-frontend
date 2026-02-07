@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { createLogger } from './logger';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const logger = createLogger('CheckpointManager');
 const CHECKPOINT_DIR = path.join(path.resolve(__dirname, '..'), 'checkpoints');
