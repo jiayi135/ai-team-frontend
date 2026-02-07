@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Code2, Sparkles, FileCode, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import MainLayout from '../components/MainLayout';
+import MainLayout from '@/components/layout/MainLayout';
 
 interface EvolutionTask {
   id?: string;

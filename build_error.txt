@@ -1,0 +1,31 @@
+Hugging Face Space Build Error
+================================
+
+Space: HuFelix135/ai-team-frontend
+URL: https://huggingface.co/spaces/HuFelix135/ai-team-frontend
+
+Error: Job failed with exit code: 1
+
+Reason: cache miss errors during Docker build
+
+Steps that failed:
+- [2/7] WORKDIR /app - cache miss
+- [3/7] RUN npm install -g pnpm - cache miss
+- [4/7] COPY package.json pnpm-lock.yaml ./ - cache miss
+- [5/7] RUN pnpm install - cache miss
+- [6/7] COPY . . - cache miss
+- [7/7] RUN pnpm run build - cache miss
+
+Analysis:
+The build is failing at the "pnpm run build" step. This could be due to:
+1. Missing build scripts in package.json
+2. TypeScript compilation errors
+3. Missing dependencies
+4. Build configuration issues
+
+Next steps:
+1. Check package.json for build scripts
+2. Verify Dockerfile configuration
+3. Test build locally
+4. Fix any TypeScript errors
+5. Ensure all dependencies are properly installed

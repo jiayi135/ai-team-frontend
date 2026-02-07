@@ -8,7 +8,7 @@ import {
   Zap,
   Search,
   RefreshCw,
-  Toggle2,
+  ToggleLeft,
   Code,
   Settings,
   CheckCircle2,
