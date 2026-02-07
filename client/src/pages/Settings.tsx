@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Save, Key, Shield, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Save, Key, Shield, Info, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LLMConfig {
@@ -24,6 +24,7 @@ export default function Settings() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('ai_team_llm_config');
@@ -48,6 +49,44 @@ export default function Settings() {
     }, 800);
   };
 
+  const handleTestConnection = async () => {
+    if (!config.apiKey) {
+      toast.error('请先输入 API Key');
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      // 发送到后端进行连通性测试
+      const response = await fetch('/api/execute/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'Tester',
+          goal: 'Say "Connection successful!" if you can hear me.',
+          config: config // 将当前配置发送给后端测试
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('连接成功', {
+          description: `已成功连接到 ${config.provider} 模型。`,
+        });
+      } else {
+        toast.error('连接失败', {
+          description: data.error || '请检查 API Key 和 Base URL 是否正确。',
+        });
+      }
+    } catch (error) {
+      toast.error('连接超时', {
+        description: '无法连接到后端测试接口。',
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const providers = [
     { id: 'openai', name: 'OpenAI', defaultUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o' },
     { id: 'deepseek', name: 'DeepSeek', defaultUrl: 'https://api.deepseek.com', defaultModel: 'deepseek-chat' },
@@ -62,7 +101,6 @@ export default function Settings() {
   const handleProviderChange = (value: string) => {
     const provider = providers.find(p => p.id === value);
     if (provider) {
-      // Use functional update to ensure state consistency
       setConfig(prev => ({
         ...prev,
         provider: value,
@@ -100,7 +138,6 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">模型供应商</label>
-                {/* Add key to Select to force re-render on provider change, preventing DOM sync issues */}
                 <Select 
                   key={`provider-${config.provider}`}
                   value={config.provider} 
@@ -156,7 +193,20 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end">
+            <div className="pt-4 flex justify-end gap-3">
+              <Button 
+                variant="outline"
+                onClick={handleTestConnection} 
+                disabled={isTesting || !config.apiKey}
+                className="border-slate-200"
+              >
+                {isTesting ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                测试连接
+              </Button>
               <Button 
                 onClick={handleSave} 
                 disabled={isSaving || !config.apiKey}
@@ -223,15 +273,6 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Status Check */}
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={18} />
-          <div className="text-sm text-amber-800">
-            <p className="font-bold mb-1">上架准备提示</p>
-            <p>在发布到生产环境前，请确保您已在 Vercel 或其他平台设置了 <code>NODE_ENV=production</code>。系统将自动启用宪法护栏与成本熔断机制。</p>
-          </div>
-        </div>
       </div>
     </MainLayout>
   );
