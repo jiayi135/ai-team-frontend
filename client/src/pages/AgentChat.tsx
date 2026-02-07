@@ -41,7 +41,7 @@ export default function AgentChat() {
     {
       id: '1',
       role: 'assistant',
-      content: '您好！我是 Neuraxis 智能代理。我可以帮您调用 MCP 技能、管理系统角色或执行复杂任务。请问有什么我可以帮您的？',
+      content: '您好！我是 AI Team 智能助手。我可以直接回答您的问题，也可以帮您调用 MCP 技能、创建任务或优化代码。请问有什么我可以帮您的？',
       timestamp: new Date(),
     },
   ]);
@@ -134,11 +134,11 @@ export default function AgentChat() {
         {/* Chat Header */}
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white shadow-lg">
               <Sparkles size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">Neuraxis Linker</h3>
+              <h3 className="font-bold text-slate-900">AI Team 助手</h3>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-slate-500 font-medium">MCP 端口已连接 (8330)</span>
@@ -146,7 +146,7 @@ export default function AgentChat() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
               <Link2 size={12} className="mr-1" />
               Article II 协议
             </Badge>

@@ -1,0 +1,9 @@
+{
+  "taskId": "task-1770461702276",
+  "phase": "final",
+  "state": {
+    "status": "failed",
+    "attempts": 3
+  },
+  "timestamp": "2026-02-07T10:55:29.088Z"
+}

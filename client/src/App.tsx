@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import NewHome from "./pages/NewHome";
 import Roles from "./pages/Roles";
 import Tools from "./pages/Tools";
 import ToolGenerator from "./pages/ToolGenerator";
@@ -23,7 +24,8 @@ import Evolution from "./pages/Evolution";
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      <Route path={"/"} component={NewHome} />
+      <Route path={"/old-home"} component={Home} />
       <Route path={"/roles"} component={Roles} />
       <Route path={"/negotiations"} component={Negotiations} />
       <Route path={"/tasks"} component={Tasks} />
