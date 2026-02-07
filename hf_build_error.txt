@@ -1,0 +1,36 @@
+HF Spaces 构建错误分析
+======================
+
+错误信息：
+Job failed with exit code: 1
+Reason: cache miss
+
+详细步骤：
+- cache miss: [6/8] COPY . .
+- cache miss: [4/8] COPY package.json pnpm-lock.yaml ./
+- cache miss: [3/8] RUN npm install -g pnpm@latest
+- cache miss: [8/8] RUN pnpm prune --prod
+- cache miss: [7/8] RUN pnpm run build  ← 构建失败在这一步
+- cache miss: [5/8] RUN pnpm install --frozen-lockfile
+- cache miss: [2/8] WORKDIR /app
+
+统计信息：
+{"total":13,"completed":10,"user_total":8,"user_cached":0,"user_completed":5,"user_cacheable":7,"from":1,"miss":7,"client_duration_ms":7508}
+
+构建日志：
+Failed to retrieve error logs: SSE is not enabled
+
+分析：
+1. 构建在 "pnpm run build" 步骤失败
+2. 无法获取详细的错误日志（SSE 未启用）
+3. 可能的原因：
+   - 内存不足
+   - 构建超时
+   - TypeScript 编译错误
+   - 某些依赖在 HF 环境中无法正确安装
+
+建议方案：
+1. 简化构建过程
+2. 减少依赖
+3. 使用预构建的方式
+4. 或考虑使用其他部署平台（Vercel + Railway）

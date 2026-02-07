@@ -12,6 +12,7 @@ import ToolGenerator from "./pages/ToolGenerator";
 import AgentConsole from "./pages/AgentConsole";
 import SkillCenter from "./pages/SkillCenter";
 import AgentChat from "./pages/AgentChat";
+import Chat from "./pages/Chat";
 import Negotiations from "./pages/Negotiations";
 import Tasks from "./pages/Tasks";
 import Costs from "./pages/Costs";
@@ -24,8 +25,8 @@ import Evolution from "./pages/Evolution";
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={NewHome} />
-      <Route path={"/old-home"} component={Home} />
+      <Route path={"/"} component={Home} />
+      <Route path={"/old-home"} component={NewHome} />
       <Route path={"/roles"} component={Roles} />
       <Route path={"/negotiations"} component={Negotiations} />
       <Route path={"/tasks"} component={Tasks} />
@@ -37,6 +38,7 @@ function Router() {
       <Route path={"/agent-console"} component={AgentConsole} />
       <Route path={"/skill-center"} component={SkillCenter} />
       <Route path={"/agent-chat"} component={AgentChat} />
+      <Route path={"/chat"} component={Chat} />
       <Route path={"/evolution"} component={Evolution} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/404"} component={NotFound} />
