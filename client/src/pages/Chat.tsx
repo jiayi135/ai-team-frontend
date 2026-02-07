@@ -241,6 +241,7 @@ export default function Chat() {
 
                 {/* Message Bubble */}
                 <div className="flex-1 max-w-[75%]">
+
                   <div
                     className={`p-5 rounded-2xl shadow-md ${
                       msg.role === 'user'
@@ -248,8 +249,26 @@ export default function Chat() {
                         : 'bg-white border-2 border-slate-200 text-slate-900 rounded-tl-md'
                     }`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.7' }}>{msg.content}</p>
+                    {/* 增强渲染逻辑：支持 P.R.O.M.P.T. 框架的结构化展示 */}
+                    <div className="space-y-3">
+                      {msg.content.split('\n').map((line, i) => {
+                        if (line.startsWith('###')) {
+                          return <h3 key={i} className="text-lg font-bold text-indigo-600 mt-4 mb-2">{line.replace('###', '').trim()}</h3>;
+                        }
+                        if (line.startsWith('**')) {
+                          return <p key={i} className="font-semibold text-slate-800">{line}</p>;
+                        }
+                        if (line.startsWith('>')) {
+                          return <blockquote key={i} className="border-l-4 border-indigo-500 pl-4 py-1 my-2 bg-indigo-50 rounded text-indigo-700 italic">{line.replace('>', '').trim()}</blockquote>;
+                        }
+                        if (line.startsWith('```')) {
+                          return null; // 简单处理代码块开始
+                        }
+                        return <p key={i} className="text-sm leading-relaxed" style={{ lineHeight: '1.7' }}>{line}</p>;
+                      })}
+                    </div>
                   </div>
+
                   <div
                     className={`mt-1 px-2 text-xs text-slate-400 ${
                       msg.role === 'user' ? 'text-right' : 'text-left'
@@ -267,13 +286,18 @@ export default function Chat() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md">
                   <Bot size={20} />
                 </div>
+
                 <div className="bg-white border border-slate-200 p-4 rounded-2xl rounded-tl-md shadow-sm">
-                  <div className="flex gap-1.5">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                    </div>
+                    <span className="text-[10px] text-indigo-500 font-medium animate-pulse">P.R.O.M.P.T. 框架分析中...</span>
                   </div>
                 </div>
+
               </div>
             )}
             <div ref={messagesEndRef} />
