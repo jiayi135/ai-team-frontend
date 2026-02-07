@@ -1,5 +1,6 @@
 import { createLogger } from './logger';
 import { OpenAI } from 'openai';
+import { GeminiClient } from './gemini_client';
 
 const logger = createLogger('LLMFactory');
 
@@ -39,12 +40,23 @@ export class LLMClient {
   }
 
   private initializeClient() {
-    // 默认使用 OpenAI 兼容协议，因为大多数主流模型（DeepSeek, Groq, Local LLMs）都支持它
-    this.client = new OpenAI({
-      apiKey: this.config.apiKey,
-      baseURL: this.config.baseUrl || this.getProviderBaseUrl(this.config.provider),
-    });
-    logger.info(`LLM Client initialized for provider: ${this.config.provider}`);
+    // Gemini 使用原生 SDK
+    if (this.config.provider === 'google') {
+      this.client = new GeminiClient({
+        apiKey: this.config.apiKey,
+        modelName: this.config.modelName,
+        temperature: this.config.temperature,
+        maxTokens: this.config.maxTokens,
+      });
+      logger.info(`Gemini Client initialized for model: ${this.config.modelName}`);
+    } else {
+      // 其他提供商使用 OpenAI 兼容协议
+      this.client = new OpenAI({
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseUrl || this.getProviderBaseUrl(this.config.provider),
+      });
+      logger.info(`LLM Client initialized for provider: ${this.config.provider}`);
+    }
   }
 
   private getProviderBaseUrl(provider: ModelProvider): string {
@@ -61,6 +73,12 @@ export class LLMClient {
 
   public async chat(messages: ChatMessage[]): Promise<LLMResponse> {
     try {
+      // Gemini 客户端有自己的 chat 方法
+      if (this.config.provider === 'google') {
+        return await this.client.chat(messages);
+      }
+
+      // OpenAI 兼容的客户端
       const startTime = Date.now();
       const response = await this.client.chat.completions.create({
         model: this.config.modelName,
