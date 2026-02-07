@@ -94,10 +94,10 @@ export default function Home() {
           </div>
 
           {/* Main Title */}
-          <h1 className="text-6xl md:text-7xl font-bold text-slate-900 mb-6 leading-tight">
+          <h1 className="text-6xl md:text-7xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-6 leading-tight animate-in fade-in slide-in-from-top duration-700">
             AI Team
           </h1>
-          <p className="text-2xl md:text-3xl text-slate-600 mb-4">
+          <p className="text-2xl md:text-3xl text-slate-600 mb-4 animate-in fade-in slide-in-from-top duration-700 delay-100">
             你的智能协作伙伴
           </p>
           <p className="text-lg text-slate-500 mb-12 max-w-2xl mx-auto">
@@ -105,10 +105,10 @@ export default function Home() {
           </p>
 
           {/* Main Input Box */}
-          <div className="max-w-3xl mx-auto mb-8">
+          <div className="max-w-3xl mx-auto mb-8 animate-in fade-in slide-in-from-bottom duration-700 delay-200">
             <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl opacity-20 group-hover:opacity-30 blur transition-opacity"></div>
-              <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl opacity-30 group-hover:opacity-50 blur-md transition-all duration-300"></div>
+              <div className="relative bg-white rounded-2xl shadow-2xl border-2 border-slate-200 overflow-hidden group-hover:border-indigo-300 transition-all duration-300">
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -129,7 +129,7 @@ export default function Home() {
                   </div>
                   <button
                     onClick={handleQuickStart}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all"
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 shadow-lg"
                   >
                     开始对话
                     <Send size={18} />
@@ -174,8 +174,8 @@ export default function Home() {
       <div className="relative py-24 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">核心功能</h2>
-            <p className="text-lg text-slate-600">探索 AI Team 的强大能力</p>
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-4">核心功能</h2>
+            <p className="text-lg text-slate-600">探索 AI Team 的强大能力，基于最新 UI 设计研究优化</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -183,9 +183,10 @@ export default function Home() {
               <div
                 key={index}
                 onClick={feature.action}
-                className="group bg-white rounded-2xl p-8 border border-slate-200 hover:border-transparent hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer"
+                className="group bg-white rounded-2xl p-8 border-2 border-slate-200 hover:border-indigo-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 cursor-pointer animate-in fade-in slide-in-from-bottom"
+                style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className={`w-16 h-16 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform shadow-lg`}>
+                <div className={`w-16 h-16 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center text-white mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}>
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-3">{feature.title}</h3>

@@ -222,7 +222,7 @@ export default function Chat() {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto bg-slate-50/50">
-          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+          <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -240,15 +240,15 @@ export default function Chat() {
                 </div>
 
                 {/* Message Bubble */}
-                <div className="flex-1 max-w-[70%]">
+                <div className="flex-1 max-w-[75%]">
                   <div
-                    className={`p-4 rounded-2xl shadow-sm ${
+                    className={`p-5 rounded-2xl shadow-md ${
                       msg.role === 'user'
-                        ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-tr-md'
-                        : 'bg-white border border-slate-200 text-slate-900 rounded-tl-md'
+                        ? 'bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white rounded-tr-md'
+                        : 'bg-white border-2 border-slate-200 text-slate-900 rounded-tl-md'
                     }`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.7' }}>{msg.content}</p>
                   </div>
                   <div
                     className={`mt-1 px-2 text-xs text-slate-400 ${
