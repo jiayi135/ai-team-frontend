@@ -68,47 +68,61 @@ export default function AgentChat() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
     setIsTyping(true);
 
-    // 模拟 AI 响应和工具调用过程
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '正在分析您的需求并连接 MCP 端口...',
-        timestamp: new Date(),
-        toolCalls: [
-          {
-            id: 'tc-1',
-            toolName: 'mcp_search_models',
-            args: { query: input, limit: 5 },
-            status: 'running',
-          },
-        ],
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+    try {
+      // 调用后端 API
+      const response = await fetch('/api/chat/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          // 可以从 localStorage 或 context 中获取 API Key
+          // apiKey: localStorage.getItem('apiKey'),
+          // provider: 'openai',
+          // modelName: 'gpt-4o',
+        }),
+      });
 
-      // 模拟工具执行成功
-      setTimeout(() => {
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === assistantMessage.id
-              ? {
-                  ...msg,
-                  content: '我已经通过 MCP 端口连接并为您找到了相关信息。',
-                  toolCalls: msg.toolCalls?.map(tc =>
-                    tc.id === 'tc-1'
-                      ? { ...tc, status: 'success', result: 'Found 5 matching models on Hugging Face.' }
-                      : tc
-                  ),
-                }
-              : msg
-          )
-        );
-        setIsTyping(false);
-      }, 3000);
-    }, 1500);
+      const data = await response.json();
+
+      if (data.success && data.message) {
+        const assistantMessage: Message = {
+          ...data.message,
+          timestamp: new Date(data.message.timestamp),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+
+        // 如果有工具调用，设置延迟更新状态
+        if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
+          setTimeout(() => {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantMessage.id
+                  ? {
+                      ...msg,
+                      toolCalls: msg.toolCalls?.map(tc =>
+                        tc.status === 'running'
+                          ? { ...tc, status: 'success', result: tc.result || '执行完成' }
+                          : tc
+                      ),
+                    }
+                  : msg
+              )
+            );
+          }, 2000);
+        }
+      } else {
+        toast.error('发送消息失败: ' + (data.error || '未知错误'));
+      }
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      toast.error('网络请求失败');
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (

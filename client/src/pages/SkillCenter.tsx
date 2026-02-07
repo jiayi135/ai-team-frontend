@@ -46,76 +46,9 @@ interface Skill {
 }
 
 export default function SkillCenter() {
-  const [servers, setServers] = useState<MCPServer[]>([
-    {
-      id: 'mcp-1',
-      name: 'Hugging Face MCP',
-      type: 'hugging-face',
-      status: 'connected',
-      tools: 12,
-      lastUpdated: '2 分钟前',
-      enabled: true,
-      description: 'Access Hugging Face models and datasets',
-      port: 3001,
-    },
-    {
-      id: 'mcp-2',
-      name: 'Cloudflare MCP',
-      type: 'cloudflare',
-      status: 'connected',
-      tools: 8,
-      lastUpdated: '5 分钟前',
-      enabled: true,
-      description: 'Cloudflare Workers and storage integration',
-      port: 3002,
-    },
-  ]);
+  const [servers, setServers] = useState<MCPServer[]>([]);
 
-  const [skills, setSkills] = useState<Skill[]>([
-    {
-      id: 'skill-1',
-      name: '模型搜索',
-      description: '在 Hugging Face 上搜索和发现 AI 模型',
-      category: 'Search',
-      server: 'mcp-1',
-      enabled: true,
-      usage: 45,
-      lastUsed: '1 小时前',
-      parameters: ['query', 'limit', 'filter'],
-    },
-    {
-      id: 'skill-2',
-      name: '数据集管理',
-      description: '浏览和管理 Hugging Face 数据集',
-      category: 'Data',
-      server: 'mcp-1',
-      enabled: true,
-      usage: 23,
-      lastUsed: '3 小时前',
-      parameters: ['dataset_id', 'split', 'limit'],
-    },
-    {
-      id: 'skill-3',
-      name: 'Workers 部署',
-      description: '部署和管理 Cloudflare Workers',
-      category: 'Deployment',
-      server: 'mcp-2',
-      enabled: true,
-      usage: 12,
-      lastUsed: '昨天',
-      parameters: ['script', 'route', 'environment'],
-    },
-    {
-      id: 'skill-4',
-      name: 'R2 存储',
-      description: 'Cloudflare R2 对象存储管理',
-      category: 'Storage',
-      server: 'mcp-2',
-      enabled: false,
-      usage: 5,
-      parameters: ['bucket', 'key', 'action'],
-    },
-  ]);
+  const [skills, setSkills] = useState<Skill[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -130,35 +63,104 @@ export default function SkillCenter() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleToggleSkill = (skillId: string) => {
-    setSkills(prev =>
-      prev.map(s => s.id === skillId ? { ...s, enabled: !s.enabled } : s)
-    );
-    toast.success('技能状态已更新');
+  const handleToggleSkill = async (skillId: string) => {
+    const skill = skills.find(s => s.id === skillId);
+    if (!skill) return;
+
+    try {
+      const response = await fetch(`/api/skills/${skillId}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !skill.enabled }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSkills(prev =>
+          prev.map(s => s.id === skillId ? { ...s, enabled: !s.enabled } : s)
+        );
+        toast.success('技能状态已更新');
+      } else {
+        toast.error('更新失败: ' + data.error);
+      }
+    } catch (error: any) {
+      toast.error('更新失败: ' + error.message);
+    }
   };
 
-  const handleToggleServer = (serverId: string) => {
-    setServers(prev =>
-      prev.map(s => s.id === serverId ? { ...s, enabled: !s.enabled } : s)
-    );
-    toast.success('服务器状态已更新');
+  const handleToggleServer = async (serverId: string) => {
+    const server = servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    try {
+      const response = await fetch(`/api/skills/servers/${serverId}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !server.enabled }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setServers(prev =>
+          prev.map(s => s.id === serverId ? { ...s, enabled: !s.enabled } : s)
+        );
+        toast.success('服务器状态已更新');
+      } else {
+        toast.error('更新失败: ' + data.error);
+      }
+    } catch (error: any) {
+      toast.error('更新失败: ' + error.message);
+    }
   };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [serversRes, skillsRes] = await Promise.all([
+        fetch('/api/skills/servers'),
+        fetch('/api/skills'),
+      ]);
+      
+      const serversData = await serversRes.json();
+      const skillsData = await skillsRes.json();
+      
+      if (serversData.success) {
+        setServers(serversData.servers);
+      }
+      
+      if (skillsData.success) {
+        setSkills(skillsData.skills);
+      }
+    } catch (error: any) {
+      toast.error('加载数据失败: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleRefreshServers = async () => {
     setIsLoading(true);
     try {
-      // 模拟刷新服务器列表
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setServers(prev =>
-        prev.map(s => ({
-          ...s,
-          lastUpdated: '刚刚',
-          status: Math.random() > 0.2 ? 'connected' : 'error',
-        }))
-      );
-      toast.success('服务器列表已刷新');
-    } catch (error) {
-      toast.error('刷新失败');
+      const response = await fetch('/api/skills/servers/refresh', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setServers(data.servers);
+        await loadData(); // 重新加载技能
+        toast.success('服务器列表已刷新');
+      } else {
+        toast.error('刷新失败: ' + data.error);
+      }
+    } catch (error: any) {
+      toast.error('刷新失败: ' + error.message);
     } finally {
       setIsLoading(false);
     }

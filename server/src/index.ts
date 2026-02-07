@@ -227,22 +227,119 @@ app.post('/api/mcp-tools/call', async (req, res) => {
 });
 
 // Tool Generation API
+import { toolGenerator } from './tool_generator';
+import { skillCenter } from './skill_center';
+import { chatService } from './chat_service';
+
 app.post('/api/tools/generate', async (req, res) => {
-  const { prompt, role = 'Developer', context = '' } = req.body;
+  const { prompt, apiKey, provider, modelName } = req.body;
   if (!prompt) {
     return res.status(400).json({ success: false, error: 'Prompt is required' });
   }
 
   try {
-    const { executeTask } = await import('./executor');
-    const result = await executeTask({
-      role,
-      goal: `Generate a tool or workflow for: ${prompt}`,
-      context: `User request for tool generation. ${context}`
+    const result = await toolGenerator.generateTool({
+      prompt,
+      apiKey,
+      provider,
+      modelName,
     });
     res.json(result);
   } catch (error: any) {
     logger.error('Failed to generate tool', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// Skill Center API Routes
+// ============================================
+app.get('/api/skills/servers', async (req, res) => {
+  try {
+    const servers = await skillCenter.getServers();
+    res.json({ success: true, servers });
+  } catch (error: any) {
+    logger.error('Failed to get servers', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/skills/servers/refresh', async (req, res) => {
+  try {
+    const servers = await skillCenter.refreshServers();
+    res.json({ success: true, servers });
+  } catch (error: any) {
+    logger.error('Failed to refresh servers', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/skills/servers/:serverId/toggle', async (req, res) => {
+  try {
+    const { serverId } = req.params;
+    const { enabled } = req.body;
+    await skillCenter.toggleServer(serverId, enabled);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error('Failed to toggle server', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/skills', async (req, res) => {
+  try {
+    const skills = await skillCenter.getSkills();
+    res.json({ success: true, skills });
+  } catch (error: any) {
+    logger.error('Failed to get skills', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/skills/:skillId/toggle', async (req, res) => {
+  try {
+    const { skillId } = req.params;
+    const { enabled } = req.body;
+    await skillCenter.toggleSkill(skillId, enabled);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error('Failed to toggle skill', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/skills/:skillId/call', async (req, res) => {
+  try {
+    const { skillId } = req.params;
+    const { args } = req.body;
+    const result = await skillCenter.callSkill(skillId, args || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    logger.error('Failed to call skill', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// Chat API Routes
+// ============================================
+app.post('/api/chat/message', async (req, res) => {
+  try {
+    const { message, apiKey, provider, modelName } = req.body;
+    if (!message) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    const response = await chatService.processMessage({
+      message,
+      apiKey,
+      provider,
+      modelName,
+    });
+
+    res.json({ success: true, message: response });
+  } catch (error: any) {
+    logger.error('Failed to process chat message', { error: error.message });
     res.status(500).json({ success: false, error: error.message });
   }
 });
