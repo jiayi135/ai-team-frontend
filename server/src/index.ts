@@ -33,7 +33,8 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the frontend build directory
-const distPath = path.resolve(__dirname, '../../dist/public');
+const distPath = path.resolve(__dirname, '../dist/public');
+logger.info('Static files path', { distPath, __dirname });
 app.use(express.static(distPath));
 
 // ============================================
@@ -284,7 +285,9 @@ io.on('connection', (socket) => {
 // Handle SPA routing - send all non-API requests to index.html
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
-    res.sendFile(path.join(distPath, 'index.html'));
+    const indexPath = path.join(distPath, 'index.html');
+    logger.info('Serving index.html', { indexPath });
+    res.sendFile(indexPath);
   }
 });
 
