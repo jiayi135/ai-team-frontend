@@ -18,6 +18,8 @@ import { PromptGenerator } from './prompt_generator';
 import mcpRoutes from './mcp_routes';
 import { mcpDiscovery } from './mcp_discovery';
 import { McpClient } from './mcp_client';
+import { executeWorkflow } from './multi_agent_workflow';
+import { smartChatService } from './smart_chat_service';
 
 const logger = createLogger('Server');
 const app = express();
@@ -33,8 +35,82 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the frontend build directory
-const distPath = path.resolve(__dirname, '../../dist/public');
+const distPath = path.resolve(__dirname, '../dist/public');
+logger.info('Static files path', { distPath, __dirname });
 app.use(express.static(distPath));
+
+// ============================================
+// Smart Chat API Routes
+// ============================================
+
+// 流式聊天 API
+app.post('/api/chat/stream', async (req, res) => {
+  const { sessionId, message } = req.body;
+  
+  if (!sessionId || !message) {
+    return res.status(400).json({ error: '缺少 sessionId 或 message' });
+  }
+
+  try {
+    // 设置 SSE 响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // 流式输出
+    for await (const chunk of smartChatService.streamChat(sessionId, message)) {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error: any) {
+    logger.error('流式聊天失败', { error: error.message });
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+// 普通聊天 API（非流式）
+app.post('/api/chat', async (req, res) => {
+  const { sessionId, message } = req.body;
+  
+  if (!sessionId || !message) {
+    return res.status(400).json({ error: '缺少 sessionId 或 message' });
+  }
+
+  try {
+    const response = await smartChatService.chat(sessionId, message);
+    res.json({ response });
+  } catch (error: any) {
+    logger.error('聊天失败', { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取会话历史
+app.get('/api/chat/history/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const history = smartChatService.getSessionHistory(sessionId);
+  res.json({ history });
+});
+
+// 清除会话
+app.delete('/api/chat/session/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  smartChatService.clearSession(sessionId);
+  res.json({ success: true });
+});
+
+// 获取会话统计
+app.get('/api/chat/stats/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const stats = smartChatService.getSessionStats(sessionId);
+  if (!stats) {
+    return res.status(404).json({ error: '会话不存在' });
+  }
+  res.json(stats);
+});
 
 // ============================================
 // Task API Routes
@@ -120,6 +196,61 @@ app.get('/api/task/:taskId', (req, res) => {
   const task = taskOrchestrator.getTask(req.params.taskId);
   if (task) res.json({ success: true, task });
   else res.status(404).json({ success: false, error: 'Task not found' });
+});
+
+// ============================================
+// Multi-Agent Workflow API Routes
+// ============================================
+app.post('/api/workflow/execute', async (req, res) => {
+  const { goal } = req.body;
+  
+  if (!goal) {
+    return res.status(400).json({ success: false, error: 'Goal is required' });
+  }
+  
+  try {
+    logger.info('Starting multi-agent workflow', { goal });
+    
+    // 异步执行工作流，立即返回任务 ID
+    const taskId = 'workflow-' + Date.now();
+    
+    // 在后台执行工作流
+    executeWorkflow(goal).then(result => {
+      logger.info('Workflow completed', { taskId, success: result.success });
+      
+      // 通过 Socket.io 发送结果
+      io.emit('workflow:completed', {
+        taskId,
+        result
+      });
+      
+      // 记录审计日志
+      healthMonitor.logAudit(
+        '多 Agent 工作流',
+        'system',
+        result.success ? 'success' : 'error',
+        `工作流完成: ${goal.substring(0, 30)}...`,
+        'Article II: 协作执行'
+      );
+    }).catch(error => {
+      logger.error('Workflow failed', { taskId, error: error.message });
+      
+      io.emit('workflow:error', {
+        taskId,
+        error: error.message
+      });
+    });
+    
+    res.json({ 
+      success: true, 
+      taskId,
+      message: '工作流已启动，请通过 WebSocket 监听结果'
+    });
+    
+  } catch (error: any) {
+    logger.error('Failed to start workflow', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ============================================
@@ -227,149 +358,22 @@ app.post('/api/mcp-tools/call', async (req, res) => {
 });
 
 // Tool Generation API
-import { toolGenerator } from './tool_generator';
-import { skillCenter } from './skill_center';
-import { chatService } from './chat_service';
-import { evolutionEngine, EvolutionTask } from './evolution_engine';
-
 app.post('/api/tools/generate', async (req, res) => {
-  const { prompt, apiKey, provider, modelName } = req.body;
+  const { prompt, role = 'Developer', context = '' } = req.body;
   if (!prompt) {
     return res.status(400).json({ success: false, error: 'Prompt is required' });
   }
 
   try {
-    const result = await toolGenerator.generateTool({
-      prompt,
-      apiKey,
-      provider,
-      modelName,
+    const { executeTask } = await import('./executor');
+    const result = await executeTask({
+      role,
+      goal: `Generate a tool or workflow for: ${prompt}`,
+      context: `User request for tool generation. ${context}`
     });
     res.json(result);
   } catch (error: any) {
     logger.error('Failed to generate tool', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================
-// Skill Center API Routes
-// ============================================
-app.get('/api/skills/servers', async (req, res) => {
-  try {
-    const servers = await skillCenter.getServers();
-    res.json({ success: true, servers });
-  } catch (error: any) {
-    logger.error('Failed to get servers', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/skills/servers/refresh', async (req, res) => {
-  try {
-    const servers = await skillCenter.refreshServers();
-    res.json({ success: true, servers });
-  } catch (error: any) {
-    logger.error('Failed to refresh servers', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/skills/servers/:serverId/toggle', async (req, res) => {
-  try {
-    const { serverId } = req.params;
-    const { enabled } = req.body;
-    await skillCenter.toggleServer(serverId, enabled);
-    res.json({ success: true });
-  } catch (error: any) {
-    logger.error('Failed to toggle server', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/skills', async (req, res) => {
-  try {
-    const skills = await skillCenter.getSkills();
-    res.json({ success: true, skills });
-  } catch (error: any) {
-    logger.error('Failed to get skills', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/skills/:skillId/toggle', async (req, res) => {
-  try {
-    const { skillId } = req.params;
-    const { enabled } = req.body;
-    await skillCenter.toggleSkill(skillId, enabled);
-    res.json({ success: true });
-  } catch (error: any) {
-    logger.error('Failed to toggle skill', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/skills/:skillId/call', async (req, res) => {
-  try {
-    const { skillId } = req.params;
-    const { args } = req.body;
-    const result = await skillCenter.callSkill(skillId, args || {});
-    res.json({ success: true, result });
-  } catch (error: any) {
-    logger.error('Failed to call skill', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================
-// Chat API Routes
-// ============================================
-app.post('/api/chat/message', async (req, res) => {
-  try {
-    const { message, apiKey, provider, modelName } = req.body;
-    if (!message) {
-      return res.status(400).json({ success: false, error: 'Message is required' });
-    }
-
-    const response = await chatService.processMessage({
-      message,
-      apiKey,
-      provider,
-      modelName,
-    });
-
-    res.json({ success: true, message: response });
-  } catch (error: any) {
-    logger.error('Failed to process chat message', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================
-// Evolution Engine API Routes
-// ============================================
-app.post('/api/evolution/tasks', async (req, res) => {
-  try {
-    const task: EvolutionTask = {
-      id: `evo-${Date.now()}`,
-      type: req.body.type || 'optimization',
-      description: req.body.description,
-      targetFiles: req.body.targetFiles,
-      constraints: req.body.constraints,
-      priority: req.body.priority || 'medium',
-      requiresApproval: req.body.requiresApproval !== false,
-    };
-
-    if (!task.description) {
-      return res.status(400).json({ success: false, error: 'Description is required' });
-    }
-
-    const apiKey = req.body.apiKey;
-    const result = await evolutionEngine.evolve(task, apiKey);
-
-    res.json({ success: true, result });
-  } catch (error: any) {
-    logger.error('Failed to create evolution task', { error: error.message });
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -411,7 +415,9 @@ io.on('connection', (socket) => {
 // Handle SPA routing - send all non-API requests to index.html
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
-    res.sendFile(path.join(distPath, 'index.html'));
+    const indexPath = path.join(distPath, 'index.html');
+    logger.info('Serving index.html', { indexPath });
+    res.sendFile(indexPath);
   }
 });
 
