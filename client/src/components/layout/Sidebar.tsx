@@ -16,6 +16,7 @@ import {
   Sparkles,
   Cpu,
   Zap,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ const navItems = [
   { label: '工具生成', href: '/tool-generator', icon: Sparkles },
   { label: 'Agent 控制台', href: '/agent-console', icon: Cpu },
   { label: '技能中心', href: '/skill-center', icon: Zap },
+  { label: 'Agent 对话', href: '/agent-chat', icon: MessageSquare },
   { label: '系统设置', href: '/settings', icon: Settings },
 ];
 

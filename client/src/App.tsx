@@ -10,6 +10,7 @@ import Tools from "./pages/Tools";
 import ToolGenerator from "./pages/ToolGenerator";
 import AgentConsole from "./pages/AgentConsole";
 import SkillCenter from "./pages/SkillCenter";
+import AgentChat from "./pages/AgentChat";
 import Negotiations from "./pages/Negotiations";
 import Tasks from "./pages/Tasks";
 import Costs from "./pages/Costs";
@@ -32,6 +33,7 @@ function Router() {
       <Route path={"/tool-generator"} component={ToolGenerator} />
       <Route path={"/agent-console"} component={AgentConsole} />
       <Route path={"/skill-center"} component={SkillCenter} />
+      <Route path={"/agent-chat"} component={AgentChat} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
