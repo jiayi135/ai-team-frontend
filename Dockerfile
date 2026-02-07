@@ -1,25 +1,4 @@
-# Multi-stage build for optimized production image
-FROM node:22-slim as builder
-
-WORKDIR /app
-
-# Install pnpm globally
-RUN npm install -g pnpm
-
-# Copy package files and patches first (for better caching and pnpm patch support)
-COPY package.json pnpm-lock.yaml ./
-COPY patches/ ./patches/
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy entire project
-COPY . .
-
-# Build frontend and backend
-RUN pnpm run build
-
-# Production stage
+# Use Node.js 22 as base image
 FROM node:22-slim
 
 WORKDIR /app
@@ -27,13 +6,19 @@ WORKDIR /app
 # Install pnpm globally
 RUN npm install -g pnpm
 
-# Copy only necessary files from builder
+# Copy package files and patches
 COPY package.json pnpm-lock.yaml ./
 COPY patches/ ./patches/
-COPY --from=builder /app/dist ./dist
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+# Install ALL dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy entire project
+COPY . .
+
+# Build frontend and backend
+# We use esbuild to bundle the backend, but keep dependencies available in node_modules
+RUN pnpm run build
 
 # Expose Hugging Face Spaces port
 EXPOSE 7860
@@ -41,7 +26,6 @@ EXPOSE 7860
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=7860
-ENV LOG_LEVEL=info
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
