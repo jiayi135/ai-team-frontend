@@ -13,15 +13,23 @@ interface ChatSession {
 }
 
 export class SmartChatService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
   private sessions: Map<string, ChatSession> = new Map();
   private systemPrompt: string;
+  private useMock: boolean = false;
 
   constructor() {
-    // 使用环境变量中的 API Key
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // 使 API Key 可选，如果没有配置则使用 Mock
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (apiKey && apiKey.trim() !== '') {
+      this.openai = new OpenAI({ apiKey });
+      this.useMock = false;
+      console.log('[SmartChatService] 使用真实 OpenAI API');
+    } else {
+      this.useMock = true;
+      console.log('[SmartChatService] 未配置 OPENAI_API_KEY，使用 Mock 模式');
+    }
 
     // 智能系统提示词
     this.systemPrompt = `你是 Neuraxis AI Team 的高级智能助手，一个专业的 AI 团队治理和技术咨询系统。
@@ -135,56 +143,54 @@ export class SmartChatService {
 4. **可维护性**：代码应该易于理解和维护
 5. **最佳实践**：遵循行业标准和最佳实践
 
-现在，请以这个角色回复用户的问题。`
+现在，请以这个角色回复用户的问题。`;
   }
 
   /**
-   * 创建新的聊天会话
+   * 流式聊天（异步生成器）
    */
-  createSession(sessionId: string): ChatSession {
-    const session: ChatSession = {
-      id: sessionId,
-      messages: [
-        {
-          role: 'system',
-          content: this.systemPrompt,
-        },
-      ],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.sessions.set(sessionId, session);
-    return session;
-  }
-
-  /**
-   * 获取或创建会话
-   */
-  getOrCreateSession(sessionId: string): ChatSession {
+  async *streamChat(sessionId: string, message: string, model: string = 'gpt-4.1-mini'): AsyncGenerator<string> {
+    // 获取或创建会话
     let session = this.sessions.get(sessionId);
     if (!session) {
-      session = this.createSession(sessionId);
+      session = {
+        id: sessionId,
+        messages: [
+          {
+            role: 'system',
+            content: this.systemPrompt,
+          },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.sessions.set(sessionId, session);
     }
-    return session;
-  }
-
-  /**
-   * 发送消息并获取流式响应
-   */
-  async *streamChat(sessionId: string, userMessage: string): AsyncGenerator<string> {
-    const session = this.getOrCreateSession(sessionId);
 
     // 添加用户消息
     session.messages.push({
       role: 'user',
-      content: userMessage,
+      content: message,
     });
     session.updatedAt = new Date();
 
     try {
-      // 调用 OpenAI API（流式）
+      // 如果没有真实 API Key，返回 Mock 响应
+      if (this.useMock || !this.openai) {
+        yield* this.mockStreamResponse(message);
+        
+        // 保存 Mock 响应到会话
+        const mockResponse = this.getMockResponse(message);
+        session.messages.push({
+          role: 'assistant',
+          content: mockResponse,
+        });
+        return;
+      }
+
+      // 调用真实 OpenAI API
       const stream = await this.openai.chat.completions.create({
-        model: 'gpt-4.1-mini', // 使用 gpt-4.1-mini
+        model,
         messages: session.messages,
         stream: true,
         temperature: 0.7,
@@ -192,8 +198,6 @@ export class SmartChatService {
       });
 
       let fullResponse = '';
-
-      // 流式输出
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {
@@ -202,67 +206,12 @@ export class SmartChatService {
         }
       }
 
-      // 保存完整的助手回复
+      // 保存助手回复
       session.messages.push({
         role: 'assistant',
         content: fullResponse,
       });
       session.updatedAt = new Date();
-
-    } catch (error: any) {
-      console.error('OpenAI API 调用失败:', error);
-      
-      // Fallback：返回友好的错误消息
-      const errorMessage = `抱歉，我遇到了一些技术问题。错误信息：${error.message}
-
-不过别担心，我可以：
-1. 使用备用模型继续对话
-2. 帮你记录这个问题
-3. 提供离线帮助文档
-
-你想怎么做？`;
-
-      yield errorMessage;
-
-      session.messages.push({
-        role: 'assistant',
-        content: errorMessage,
-      });
-    }
-  }
-
-  /**
-   * 发送消息并获取完整响应（非流式）
-   */
-  async chat(sessionId: string, userMessage: string): Promise<string> {
-    const session = this.getOrCreateSession(sessionId);
-
-    // 添加用户消息
-    session.messages.push({
-      role: 'user',
-      content: userMessage,
-    });
-    session.updatedAt = new Date();
-
-    try {
-      // 调用 OpenAI API
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4.1-mini',
-        messages: session.messages,
-        temperature: 0.7,
-        max_tokens: 2000,
-      });
-
-      const assistantMessage = response.choices[0]?.message?.content || '抱歉，我没有理解你的问题。';
-
-      // 保存助手回复
-      session.messages.push({
-        role: 'assistant',
-        content: assistantMessage,
-      });
-      session.updatedAt = new Date();
-
-      return assistantMessage;
 
     } catch (error: any) {
       console.error('OpenAI API 调用失败:', error);
@@ -274,8 +223,127 @@ export class SmartChatService {
         content: errorMessage,
       });
 
-      return errorMessage;
+      yield errorMessage;
     }
+  }
+
+  /**
+   * Mock 流式响应
+   */
+  private async *mockStreamResponse(message: string): AsyncGenerator<string> {
+    const response = this.getMockResponse(message);
+    const words = response.split('');
+    
+    for (const char of words) {
+      yield char;
+      // 模拟打字延迟
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+  }
+
+  /**
+   * 获取 Mock 响应
+   */
+  private getMockResponse(message: string): string {
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerMessage.includes('代码') || lowerMessage.includes('code')) {
+      return `好的！我来帮你写代码。
+
+\`\`\`python
+def hello_world():
+    """
+    这是一个示例函数
+    """
+    print("Hello, World!")
+    return "Success"
+
+# 调用函数
+result = hello_world()
+print(result)
+\`\`\`
+
+这段代码演示了基本的函数定义和调用。
+
+**注意**：当前使用的是 Mock 模式，请在 HF Space Settings 中配置 \`OPENAI_API_KEY\` 以启用真实的 AI 对话功能。`;
+    }
+
+    if (lowerMessage.includes('算法') || lowerMessage.includes('algorithm')) {
+      return `让我解释一下这个算法：
+
+## 快速排序
+
+快速排序是一种高效的排序算法，采用分治策略。
+
+### 基本思想
+
+1. 选择一个基准元素
+2. 将数组分为两部分：小于基准和大于基准
+3. 递归地对两部分进行排序
+
+### 时间复杂度
+
+| 情况 | 复杂度 |
+|------|--------|
+| 最好 | O(n log n) |
+| 平均 | O(n log n) |
+| 最坏 | O(n²) |
+
+**注意**：当前使用的是 Mock 模式，请配置 \`OPENAI_API_KEY\` 以获得更智能的回复。`;
+    }
+
+    if (lowerMessage.includes('你好') || lowerMessage.includes('hello')) {
+      return `你好！我是 Neuraxis AI Team 的智能助手。
+
+我可以帮你：
+
+- 🤖 **多 Agent 协作**：协调 5 个专业 Agent 完成复杂任务
+- 💻 **代码生成**：根据需求生成高质量代码
+- 🏗️ **架构设计**：提供系统架构建议
+- 🔍 **算法优化**：分析和优化算法性能
+- 🧪 **测试策略**：制定完整的测试方案
+
+有什么我可以帮你的吗？
+
+> **提示**：当前使用的是 Mock 模式。要启用真实的 AI 对话功能，请在 Hugging Face Space Settings 中配置 \`OPENAI_API_KEY\` 环境变量。`;
+    }
+
+    return `感谢你的提问！
+
+我理解你想了解关于"${message}"的信息。
+
+由于当前处于 **Mock 模式**，我只能提供有限的预设回复。要获得更智能、更准确的回答，请按以下步骤配置：
+
+## 启用真实 AI 功能
+
+1. 访问 [Hugging Face Space Settings](https://huggingface.co/spaces/HuFelix135/neuraxis/settings)
+2. 找到 "Variables and secrets" 区域
+3. 点击 "New secret"
+4. 添加：
+   - Name: \`OPENAI_API_KEY\`
+   - Value: 你的 OpenAI API Key
+5. 点击 "Save"
+6. 重启 Space
+
+配置完成后，我将能够：
+- 理解复杂的问题
+- 生成高质量的代码
+- 提供专业的技术建议
+- 进行多轮对话
+- 记住上下文
+
+期待为你提供更好的服务！🚀`;
+  }
+
+  /**
+   * 普通聊天（非流式）
+   */
+  async chat(sessionId: string, message: string, model: string = 'gpt-4.1-mini'): Promise<string> {
+    let fullResponse = '';
+    for await (const chunk of this.streamChat(sessionId, message, model)) {
+      fullResponse += chunk;
+    }
+    return fullResponse;
   }
 
   /**
@@ -293,36 +361,30 @@ export class SmartChatService {
   /**
    * 清除会话
    */
-  clearSession(sessionId: string): void {
-    this.sessions.delete(sessionId);
-  }
-
-  /**
-   * 获取所有会话 ID
-   */
-  getAllSessionIds(): string[] {
-    return Array.from(this.sessions.keys());
+  clearSession(sessionId: string): boolean {
+    return this.sessions.delete(sessionId);
   }
 
   /**
    * 获取会话统计
    */
-  getSessionStats(sessionId: string): {
-    messageCount: number;
-    createdAt: Date;
-    updatedAt: Date;
-  } | null {
+  getSessionStats(sessionId: string) {
     const session = this.sessions.get(sessionId);
     if (!session) {
       return null;
     }
+
+    const messages = session.messages.filter(msg => msg.role !== 'system');
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    const assistantMessages = messages.filter(msg => msg.role === 'assistant');
+
     return {
-      messageCount: session.messages.length - 1, // 排除系统提示词
+      sessionId,
+      messageCount: messages.length,
+      userMessageCount: userMessages.length,
+      assistantMessageCount: assistantMessages.length,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };
   }
 }
-
-// 导出单例
-export const smartChatService = new SmartChatService();

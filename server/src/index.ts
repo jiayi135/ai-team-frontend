@@ -19,7 +19,10 @@ import mcpRoutes from './mcp_routes';
 import { mcpDiscovery } from './mcp_discovery';
 import { McpClient } from './mcp_client';
 import { executeWorkflow } from './multi_agent_workflow';
-import { smartChatService } from './smart_chat_service';
+import { SmartChatService } from './smart_chat_service';
+
+// 创建 SmartChatService 实例
+const smartChatService = new SmartChatService();
 
 const logger = createLogger('Server');
 const app = express();
