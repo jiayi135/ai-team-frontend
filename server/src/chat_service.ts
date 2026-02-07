@@ -2,6 +2,7 @@ import { createLogger } from './logger';
 import { taskOrchestrator } from './task_orchestrator';
 import { skillCenter } from './skill_center';
 import { llmFactory } from './llm_factory';
+import { evolutionEngine } from './evolution_engine';
 
 const logger = createLogger('ChatService');
 
@@ -46,7 +47,9 @@ export class ChatService {
       const intent = await this.analyzeIntent(message, apiKey, provider, modelName);
 
       // 根据意图执行不同的操作
-      if (intent.type === 'task_creation') {
+      if (intent.type === 'code_evolution') {
+        return await this.handleCodeEvolution(message, intent, apiKey, provider, modelName);
+      } else if (intent.type === 'task_creation') {
         return await this.handleTaskCreation(message, intent, apiKey, provider, modelName);
       } else if (intent.type === 'skill_call') {
         return await this.handleSkillCall(message, intent);
@@ -72,6 +75,17 @@ export class ChatService {
   ): Promise<{ type: string; params?: any }> {
     // 简单的意图识别
     const lowerMessage = message.toLowerCase();
+
+    // 检查是否是代码进化请求
+    if (
+      lowerMessage.includes('修改代码') ||
+      lowerMessage.includes('优化') ||
+      lowerMessage.includes('修复') ||
+      lowerMessage.includes('重构') ||
+      lowerMessage.includes('改进')
+    ) {
+      return { type: 'code_evolution' };
+    }
 
     // 检查是否是任务创建请求
     if (
@@ -252,6 +266,83 @@ export class ChatService {
     } catch (error: any) {
       logger.error('Failed to generate chat response', { error: error.message });
       throw error;
+    }
+  }
+
+  private async handleCodeEvolution(
+    message: string,
+    intent: any,
+    apiKey: string,
+    provider: string,
+    modelName: string
+  ): Promise<ChatMessage> {
+    logger.info('Handling code evolution');
+
+    try {
+      // 确定任务类型
+      let taskType: 'bug_fix' | 'optimization' | 'feature_add' | 'refactor' = 'optimization';
+      if (message.includes('修复') || message.includes('bug')) {
+        taskType = 'bug_fix';
+      } else if (message.includes('添加') || message.includes('新增')) {
+        taskType = 'feature_add';
+      } else if (message.includes('重构')) {
+        taskType = 'refactor';
+      }
+
+      // 创建进化任务
+      const task = {
+        id: `evo-${Date.now()}`,
+        type: taskType,
+        description: message,
+        priority: 'medium' as const,
+        requiresApproval: true,
+      };
+
+      const toolCall: ToolCall = {
+        id: `tc-${Date.now()}`,
+        toolName: 'code_evolution',
+        args: { task },
+        status: 'running',
+      };
+
+      // 异步执行进化任务
+      this.executeEvolutionAsync(task, apiKey, toolCall);
+
+      return {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `我已经创建了代码进化任务，正在分析代码并生成修改方案...\n\n任务类型：${taskType}\n描述：${message}\n\n请稍候，我会在分析完成后向您展示修改方案。`,
+        timestamp: new Date(),
+        toolCalls: [toolCall],
+        taskId: task.id,
+      };
+    } catch (error: any) {
+      logger.error('Failed to create evolution task', { error: error.message });
+      throw error;
+    }
+  }
+
+  private async executeEvolutionAsync(
+    task: any,
+    apiKey: string,
+    toolCall: ToolCall
+  ): Promise<void> {
+    try {
+      const result = await evolutionEngine.evolve(task, apiKey);
+
+      toolCall.status = 'success';
+      toolCall.result = {
+        status: result.status,
+        filesModified: result.metrics.filesModified,
+        linesChanged: result.metrics.linesAdded + result.metrics.linesRemoved,
+        learnings: result.learnings,
+      };
+
+      logger.info('Evolution task completed', { taskId: task.id, status: result.status });
+    } catch (error: any) {
+      toolCall.status = 'error';
+      toolCall.error = error.message;
+      logger.error('Evolution task failed', { taskId: task.id, error: error.message });
     }
   }
 

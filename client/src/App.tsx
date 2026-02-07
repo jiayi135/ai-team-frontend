@@ -17,6 +17,7 @@ import Costs from "./pages/Costs";
 import Health from "./pages/Health";
 import Search from "./pages/Search";
 import Settings from "./pages/Settings";
+import Evolution from "./pages/Evolution";
 
 
 function Router() {
@@ -34,6 +35,7 @@ function Router() {
       <Route path={"/agent-console"} component={AgentConsole} />
       <Route path={"/skill-center"} component={SkillCenter} />
       <Route path={"/agent-chat"} component={AgentChat} />
+      <Route path={"/evolution"} component={Evolution} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

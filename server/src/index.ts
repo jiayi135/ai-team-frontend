@@ -230,6 +230,7 @@ app.post('/api/mcp-tools/call', async (req, res) => {
 import { toolGenerator } from './tool_generator';
 import { skillCenter } from './skill_center';
 import { chatService } from './chat_service';
+import { evolutionEngine, EvolutionTask } from './evolution_engine';
 
 app.post('/api/tools/generate', async (req, res) => {
   const { prompt, apiKey, provider, modelName } = req.body;
@@ -340,6 +341,35 @@ app.post('/api/chat/message', async (req, res) => {
     res.json({ success: true, message: response });
   } catch (error: any) {
     logger.error('Failed to process chat message', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// Evolution Engine API Routes
+// ============================================
+app.post('/api/evolution/tasks', async (req, res) => {
+  try {
+    const task: EvolutionTask = {
+      id: `evo-${Date.now()}`,
+      type: req.body.type || 'optimization',
+      description: req.body.description,
+      targetFiles: req.body.targetFiles,
+      constraints: req.body.constraints,
+      priority: req.body.priority || 'medium',
+      requiresApproval: req.body.requiresApproval !== false,
+    };
+
+    if (!task.description) {
+      return res.status(400).json({ success: false, error: 'Description is required' });
+    }
+
+    const apiKey = req.body.apiKey;
+    const result = await evolutionEngine.evolve(task, apiKey);
+
+    res.json({ success: true, result });
+  } catch (error: any) {
+    logger.error('Failed to create evolution task', { error: error.message });
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -11,6 +11,11 @@
 
 这是项目的核心理念文档，定义了整个系统的运作原则和架构设计。
 
+#### [Self Evolution System](./SELF_EVOLUTION_SYSTEM.md)
+**自我进化系统设计文档**
+
+详细的自我进化系统架构设计，实现 AI 代理自主分析、修改和优化代码的能力。
+
 **内容概览**：
 - 宪法序言：向元认知智能的转变
 - P.R.O.M.P.T. 六大支柱详解
@@ -123,6 +128,9 @@
 ### [Project Summary - 2026-02-07](./PROJECT_SUMMARY.md)
 **项目完善总结报告**
 
+### [Evolution Implementation Report - 2026-02-07](./EVOLUTION_IMPLEMENTATION_REPORT.md)
+**自我进化系统实施报告**
+
 **完成工作**：
 1. ✅ Hugging Face 资源调研
 2. ✅ 项目文档体系建设
@@ -154,17 +162,20 @@
 | 文档 | 类型 | 行数 | 字数 | 最后更新 |
 |------|------|------|------|---------|
 | AI_TEAM_CONSTITUTION.md | 框架 | 350 | ~5,000 | 2026-02-07 |
+| SELF_EVOLUTION_SYSTEM.md | 框架 | 500 | ~7,000 | 2026-02-07 |
 | DEVELOPMENT_PHASES.md | 指南 | 446 | ~6,000 | 2026-02-07 |
 | HUGGINGFACE_INTEGRATION.md | 指南 | 550 | ~7,500 | 2026-02-07 |
 | HF_RESOURCES.md | 资源 | 514 | ~7,000 | 2026-02-07 |
 | BUGFIX_REPORT.md | 报告 | 600 | ~8,000 | 2026-02-07 |
 | PROJECT_SUMMARY.md | 报告 | 400 | ~5,500 | 2026-02-07 |
-| **总计** | - | **2,860** | **~39,000** | - |
+| EVOLUTION_IMPLEMENTATION_REPORT.md | 报告 | 400 | ~5,500 | 2026-02-07 |
+| **总计** | - | **3,760** | **~51,000** | - |
 
 ### 文档分类
 
-**核心框架**（1 个）：
+**核心框架**（2 个）：
 - AI Team Constitution
+- Self Evolution System
 
 **开发指南**（2 个）：
 - Development Phases
@@ -173,9 +184,10 @@
 **资源清单**（1 个）：
 - HF Resources
 
-**修复报告**（2 个）：
+**修复报告**（3 个）：
 - Bug Fix Report
 - Project Summary
+- Evolution Implementation Report
 
 ---
 
@@ -274,17 +286,19 @@ PROJECT_SUMMARY_YYYYMMDD_<阶段名称>.md
 
 **新增文档**：
 - ✨ AI_TEAM_CONSTITUTION.md - P.R.O.M.P.T. 框架法典
+- ✨ SELF_EVOLUTION_SYSTEM.md - 自我进化系统设计
 - ✨ DEVELOPMENT_PHASES.md - 开发阶段规划
 - ✨ HUGGINGFACE_INTEGRATION.md - HF 集成指南
 - ✨ HF_RESOURCES.md - HF 资源清单
 - ✨ BUGFIX_REPORT.md - 三功能修复报告
 - ✨ PROJECT_SUMMARY.md - 项目完善总结
+- ✨ EVOLUTION_IMPLEMENTATION_REPORT.md - 自我进化实施报告
 - ✨ README.md - 本文档索引
 
 **文档统计**：
-- 总文档：7 个
-- 总行数：2,860+ 行
-- 总字数：39,000+ 字
+- 总文档：9 个
+- 总行数：3,760+ 行
+- 总字数：51,000+ 字
 
 **负责人**: Manus AI Agent
 
