@@ -185,6 +185,20 @@ app.get('/api/health/audit-logs', (req, res) => {
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/governance', mcpRoutes);
 
+// --- MCP Port & Status Routes ---
+app.get('/api/mcp/status', (req, res) => {
+  res.json({
+    success: true,
+    port: 8330,
+    status: 'connected',
+    servers: [
+      { id: 'huggingface', name: 'Hugging Face MCP', status: 'online' },
+      { id: 'cloudflare', name: 'Cloudflare MCP', status: 'online' }
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Additional MCP Tools API Routes for Frontend
 app.get('/api/mcp-tools', async (req, res) => {
   try {
