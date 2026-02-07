@@ -6,8 +6,9 @@ WORKDIR /app
 # Install pnpm globally
 RUN npm install -g pnpm
 
-# Copy package files first (for better caching)
+# Copy package files and patches first (for better caching and pnpm patch support)
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -28,6 +29,7 @@ RUN npm install -g pnpm
 
 # Copy only necessary files from builder
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 COPY --from=builder /app/dist ./dist
 
 # Install production dependencies only
