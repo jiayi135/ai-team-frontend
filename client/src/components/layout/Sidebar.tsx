@@ -14,6 +14,7 @@ import {
   Settings,
   Wrench,
   Sparkles,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +28,7 @@ const navItems = [
   { label: '互联网搜索', href: '/search', icon: Globe },
   { label: '工具管理', href: '/tools', icon: Wrench },
   { label: '工具生成', href: '/tool-generator', icon: Sparkles },
+  { label: 'Agent 控制台', href: '/agent-console', icon: Cpu },
   { label: '系统设置', href: '/settings', icon: Settings },
 ];
 
