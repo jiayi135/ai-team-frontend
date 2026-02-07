@@ -14,6 +14,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import KPICard from '@/components/dashboard/KPICard';
 import MetricsChart from '@/components/dashboard/MetricsChart';
 import TaskComposer from '@/components/tasks/TaskComposer';
+import ModuleControlCenter from '@/components/dashboard/ModuleControlCenter';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
@@ -112,6 +113,11 @@ export default function Home() {
       {/* Task Composer Section */}
       <div className="mb-12">
         <TaskComposer onSubmit={handleTaskSubmit} isLoading={isSubmitting} />
+      </div>
+
+      {/* Module Control Center */}
+      <div className="mb-12">
+        <ModuleControlCenter />
       </div>
 
       {/* KPI Cards */}
